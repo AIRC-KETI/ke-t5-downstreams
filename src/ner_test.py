@@ -41,6 +41,7 @@ class T5EncoderCRFforNER(object):
 
         sots = outputs[0]
         inputs = self.tokenizer.sp_model.encode(input_str, out_type=str)
+        text_decoded = self.tokenizer.sp_model.decode(inputs)
 
         # we add task token for multitask model
         # because we add task token, remove "ner: " tag
@@ -50,10 +51,11 @@ class T5EncoderCRFforNER(object):
 
         tag_merged = self.postproc(input_tag_pairs)
 
-        formatted_text = self.formatting(input_str, tag_merged)
+        formatted_text = self.formatting(text_decoded, tag_merged)
 
         return {
             'text': input_str,
+            'text': text_decoded,
             'tags': tag_merged,
             'fmt_txt': formatted_text
         }
