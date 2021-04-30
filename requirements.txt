@@ -1,2 +1,3 @@
 pytorch-crf
 transformers
+sentencepiece
