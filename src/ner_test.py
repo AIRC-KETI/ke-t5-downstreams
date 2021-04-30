@@ -1,6 +1,5 @@
 import os
 
-import pandas as pd
 import random
 import torch
 from transformers import T5Tokenizer
