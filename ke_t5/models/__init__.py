@@ -12,19 +12,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import gin
-from transformers import AutoTokenizer
-
-DEFAULT_VOCAB_PATH = "KETI-AIR/ke-t5-small"
-
-
-def get_default_vocabulary():
-    return AutoTokenizer.from_pretrained(DEFAULT_VOCAB_PATH)
-
-@gin.configurable
-def get_vocabulary(vocab_name=None):
-    print(vocab_name)
-    if vocab_name is None:
-        return get_default_vocabulary()
-    else:
-        return AutoTokenizer.from_pretrained(vocab_name)

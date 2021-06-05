@@ -18,9 +18,9 @@ import functools
 from ke_t5 import pipe as seq_pipe
 from .task_meta import NIKL_META, KLUE_META
 from . import preprocessors
-from . import utils
+from .utils import get_vocabulary
 
-VOCABULARY = utils.get_vocabulary()
+VOCABULARY = get_vocabulary()
 
 GENERATIVE_OUTPUT_FEATURES = {
     "inputs": seq_pipe.Feature(
@@ -54,9 +54,19 @@ seq_pipe.TaskRegistry.add(
             with_feature_key=True,
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
 )
 
 # ============ KLUE topic classification: Classifier ============
@@ -79,9 +89,24 @@ seq_pipe.TaskRegistry.add(
             with_feature_key=True,
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'num_labels': len(KLUE_META['tc_classes']),
+        'id2label': {idx:key for idx, key in enumerate(KLUE_META['tc_classes'])},
+        'label2id': {key:idx for idx, key in enumerate(KLUE_META['tc_classes'])},
+        },
+    num_proc=4,
 )
 
 
@@ -106,9 +131,19 @@ seq_pipe.TaskRegistry.add(
             with_feature_key=True,
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
 )
 
 # ============ KLUE NLI: Classifier ============
@@ -132,9 +167,24 @@ seq_pipe.TaskRegistry.add(
             with_feature_key=True,
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
+    additional_task_info={
+        'num_labels': len(KLUE_META['nli_classes']),
+        'id2label': {idx:key for idx, key in enumerate(KLUE_META['nli_classes'])},
+        'label2id': {key:idx for idx, key in enumerate(KLUE_META['nli_classes'])},
+        },
 )
 
 
@@ -158,9 +208,19 @@ seq_pipe.TaskRegistry.add(
             with_feature_key=True,
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
 )
 
 # ============ KLUE STS: Regressor ============
@@ -184,9 +244,19 @@ seq_pipe.TaskRegistry.add(
             with_feature_key=True
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
 )
 
 # ============ KLUE RE: Generative ============
@@ -209,9 +279,19 @@ seq_pipe.TaskRegistry.add(
             label_names=KLUE_META['re_relations']
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
 )
 
 # ============ KLUE RE: Classifier ============
@@ -234,9 +314,24 @@ seq_pipe.TaskRegistry.add(
             label_names=None
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
+    additional_task_info={
+        'num_labels': len(KLUE_META['re_relations']),
+        'id2label': {idx:key for idx, key in enumerate(KLUE_META['re_relations'])},
+        'label2id': {key:idx for idx, key in enumerate(KLUE_META['re_relations'])},
+        },
 )
 
 # ============ KLUE MRC: Generative ============
@@ -258,9 +353,18 @@ seq_pipe.TaskRegistry.add(
             benchmark_name='klue_mrc',
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
-    output_features=DEFAULT_OUTPUT_FEATURES,
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
 )
 
@@ -284,26 +388,45 @@ seq_pipe.TaskRegistry.add(
             include_context=False
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
-        seq_pipe.preprocessors.append_eos_output_features
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rename_key, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
-    output_features=DEFAULT_OUTPUT_FEATURES,
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
 )
+
 
 
 if __name__ == "__main__":
     seq_pipe.set_hf_data_dir_override("../Korean-Copora/data")
     seq_pipe.set_hf_cache_dir_override("./cache_dir/huggingface_datasets")
 
-    task = seq_pipe.get_task('klue_mrc_gen')
+    task = seq_pipe.get_task('klue_tc_gen')
     
     dataset = task.get_dataset(
-        sequence_length={"inputs": 256, "targets": 128},
+        sequence_length={"inputs": 512, "targets": 128},
         split="train"
     )
+
+    
 
     # Print the first 5 examples.
     for _, ex in zip(range(5), iter(dataset)):
         print(ex)
+
+    import torch
+
+    dataset.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=32)
+
+    print(next(iter(dataloader)))
     
-    print(task._num_proc)
+    #print(task._num_proc)

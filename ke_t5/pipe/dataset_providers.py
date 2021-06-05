@@ -265,6 +265,8 @@ class Task(DatasetProviderBase):
             preprocessors: Optional[Sequence[Callable[..., Dataset]]] = None,
             postprocess_fn: Optional[Callable[..., Any]] = None,
             metric_fns: Optional[Sequence[MetricFnCallable]] = None,
+            additional_task_info: Optional[Dict] = None,
+            columns: Optional[str] = None,
             num_proc: Optional[int] = None):
         """Task constructor.
 
@@ -313,16 +315,17 @@ class Task(DatasetProviderBase):
         self._name = name
         self._source = source
 
-        self._num_proc = num_proc
+        self._num_proc = num_proc if num_proc else 1
+        self._additional_task_info = additional_task_info
 
         preprocessors = tuple(preprocessors or [])
 
         self._preprocessors = preprocessors
 
+        self._columns = columns
+
         self._metric_fns = tuple(metric_fns)
         self._postprocess_fn = postprocess_fn
-
-        self._stats = {}
 
         self._output_features = collections.OrderedDict(
             sorted(list(output_features.items()))
@@ -365,6 +368,19 @@ class Task(DatasetProviderBase):
     @property
     def preprocessors(self) -> Sequence[Callable[..., Dataset]]:
         return self._preprocessors
+
+    @property
+    def additional_task_info(self) -> Dict:
+        if self._additional_task_info is None:
+            return {}
+        return self._additional_task_info
+    
+    @property
+    def colums(self) -> Sequence[str]:
+        if self._columns is None:
+            return ['input_ids', 'attention_mask', 'labels']
+        else:
+            return self._columns
 
     def num_input_examples(self, split: str) -> Optional[int]:
         return self.source.num_input_examples(split)
