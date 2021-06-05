@@ -18,6 +18,23 @@ import numpy as np
 from ke_t5 import pipe as seq_pipe
 
 
+def _collapse_consecutive_spaces(text):
+    return re.sub(r'\s+', ' ', text)
+
+def _string_join(lst, sep=' '):
+    # Join on space, but collapse consecutive spaces.
+    out = sep.join(lst)
+    return _collapse_consecutive_spaces(out)
+
+def _pad_punctuation_general(text):
+    # Pad everything except for: underscores (_), whitespace (\s),
+    # numbers (\p{N}), letters (\p{L}) and accent characters (\p{M}).
+    text = re.sub(r'([^_\s\w])', r' \1 ', text)
+    # Collapse consecutive whitespace into one space.
+    text = _collapse_consecutive_spaces(text)
+    return text
+
+
 @seq_pipe.map_over_dataset
 def base_preproc_for_classification(
         x,
@@ -90,7 +107,7 @@ def re_preproc_for_classification(
     # mark span using start index of the entity
     def _mark_span(text, span_str, span_idx, mark):
         pattern_tmpl = r'^((?:[\S\s]){N})(W)'
-        pattern = pattern_tmpl.replace('N', str(span_idx))
+        pattern_tmpl = pattern_tmpl.replace('N', str(span_idx))
         pattern = pattern_tmpl.replace('W', span_str)
         return re.sub(pattern, r'\1{0}\2{0}'.format(mark), text)
 
@@ -122,3 +139,42 @@ def re_preproc_for_classification(
     ex['id'] = x['id']
 
     return ex
+
+
+@seq_pipe.map_over_dataset
+def preprocess_quad(x, benchmark_name, include_context=True, impossible_answer_text='impossible', pad_punct=True):
+    
+    a = x['answers']['text']
+    q = x['question']
+    c = x['context']
+
+    if pad_punct:
+        a = [_pad_punctuation_general(txt) for txt in a]
+        q = _pad_punctuation_general(q)
+        c = _pad_punctuation_general(c)
+
+    strs_to_join = []
+    if include_context:
+        strs_to_join.extend(['question:', q, 'context:', c])
+    else:
+        strs_to_join.extend(['trivia question:', q])
+
+    strs_to_join.insert(0, benchmark_name)
+    inputs = _string_join(strs_to_join)
+
+    if 'is_impossible' in x:
+        if x['is_impossible']:
+            label = impossible_answer_text
+        else:
+            label = a[0]
+    else:
+        label = a[0]
+
+    return {
+        'inputs': inputs,
+        'targets': label,
+        'id': x['id'],
+        'context': c,
+        'question': q,
+        'answers': a
+    }

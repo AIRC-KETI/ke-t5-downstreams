@@ -30,7 +30,7 @@ import datasets
 from datasets import Dataset
 from transformers import PreTrainedTokenizerBase
 
-from ke_t5.pipe import utils
+from . import utils
 
 _VALID_TASK_NAME_REGEX = re.compile(r"^[\w\d\.\:_]+$")
 
@@ -383,9 +383,7 @@ class Task(DatasetProviderBase):
                 kwargs["sequence_length"] = sequence_length
             if "output_features" in fn_args:
                 kwargs["output_features"] = self.output_features
-            if "num_proc" in fn_args:
-                kwargs["num_proc"] = self._num_proc
-            dataset = prep_fn(dataset, **kwargs)
+            dataset = prep_fn(dataset, num_proc=self._num_proc, **kwargs)
         return dataset
 
     def get_dataset(

@@ -178,9 +178,9 @@ def map_over_dataset(fn):
     """
 
     @functools.wraps(fn)
-    def wrapped_fn(ds, *args, **kargs):
+    def wrapped_fn(ds, *args, num_proc=1, **kargs):
         return ds.map(
-            lambda arg: fn(arg, *args, **kargs))
+            lambda arg: fn(arg, *args, **kargs), num_proc=num_proc)
 
     return wrapped_fn
 

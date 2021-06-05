@@ -15,4 +15,4 @@
 
 from ke_t5.pipe.utils import *
 from ke_t5.pipe import preprocessors
-from ke_t5.dataset_providers import *
+from ke_t5.pipe.dataset_providers import *

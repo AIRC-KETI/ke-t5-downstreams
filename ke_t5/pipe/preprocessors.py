@@ -16,8 +16,8 @@ from typing import Mapping, Optional, Any
 
 import datasets
 
-from ke_t5.pipe import utils
-from ke_t5.pipe import dataset_providers
+from . import utils
+from . import dataset_providers
 
 OutputFeaturesType = Mapping[str, dataset_providers.Feature]
 SequenceLengthType = Mapping[str, int]
