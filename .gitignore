@@ -30,8 +30,14 @@ MANIFEST
 # vscode configuration
 .vscode/
 
-# Data
-data
+# addtional files
+src_tmp/
+cache_dir/
+hf_test.py
+hf_vocab_test.py
+ner_test.py
+temp.gin
+test.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
