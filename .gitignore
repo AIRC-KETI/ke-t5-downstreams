@@ -31,7 +31,7 @@ MANIFEST
 .vscode/
 
 # addtional files
-src_tmp/
+#src_tmp/
 cache_dir/
 hf_test.py
 hf_vocab_test.py
