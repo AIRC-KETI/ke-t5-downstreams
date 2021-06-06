@@ -71,6 +71,8 @@ class MeanPooler(nn.Module):
 @register_model('T5EncoderForSequenceClassificationSimple')
 class T5EncoderForSequenceClassificationSimple(T5EncoderModel):
     def __init__(self, config):
+        if not hasattr(config, 'problem_type'):
+            config.problem_type = None
         super(T5EncoderForSequenceClassificationSimple, self).__init__(config)
 
         self.num_labels = config.num_labels
@@ -120,7 +122,7 @@ class T5EncoderForSequenceClassificationSimple(T5EncoderModel):
 
         loss = None
         if labels is not None:
-            if self.config.problem_type is None:
+            if c is None:
                 if self.num_labels == 1:
                     self.config.problem_type = "regression"
                 elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
@@ -155,6 +157,8 @@ class T5EncoderForSequenceClassificationSimple(T5EncoderModel):
 @register_model('T5EncoderForSequenceClassificationMean')
 class T5EncoderForSequenceClassificationMean(T5EncoderModel):
     def __init__(self, config):
+        if not hasattr(config, 'problem_type'):
+            config.problem_type = None
         super(T5EncoderForSequenceClassificationMean, self).__init__(config)
 
         self.num_labels = config.num_labels

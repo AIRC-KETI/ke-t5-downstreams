@@ -17,7 +17,7 @@ import functools
 
 from ke_t5 import pipe as seq_pipe
 from .task_meta import NIKL_META, KLUE_META
-from . import preprocessors
+from . import preprocessors, metrics
 from .utils import get_vocabulary
 
 VOCABULARY = get_vocabulary()
@@ -65,6 +65,9 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    metric_fns=[
+        metrics.accuracy
+    ],
     columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
 )
@@ -87,6 +90,7 @@ seq_pipe.TaskRegistry.add(
             input_keys=['title'],
             label_names=None,
             with_feature_key=True,
+            no_label_idx=7,
         ),
         seq_pipe.preprocessors.tokenize_output_features, 
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
@@ -100,6 +104,10 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
+    metric_fns=[
+        metrics.accuracy
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
     columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'num_labels': len(KLUE_META['tc_classes']),

@@ -12,8 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gin
+import torch
 
-from ke_t5.pipe.utils import *
-from ke_t5.pipe import preprocessors
-from ke_t5.pipe.dataset_providers import *
-from ke_t5.pipe import evaluation
+import transformers
+
+gin.external_configurable(torch.optim.Adadelta)
+gin.external_configurable(torch.optim.Adagrad)
+gin.external_configurable(torch.optim.Adam)
+gin.external_configurable(torch.optim.AdamW)
+gin.external_configurable(torch.optim.SparseAdam)
+gin.external_configurable(torch.optim.Adamax)
+gin.external_configurable(torch.optim.ASGD)
+gin.external_configurable(torch.optim.RMSprop)
+gin.external_configurable(torch.optim.Rprop)
+gin.external_configurable(torch.optim.SGD)
+
+gin.external_configurable(transformers.Adafactor)

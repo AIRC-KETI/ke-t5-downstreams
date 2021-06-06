@@ -31,6 +31,7 @@ from datasets import Dataset
 from transformers import PreTrainedTokenizerBase
 
 from . import utils
+from . import evaluation
 
 _VALID_TASK_NAME_REGEX = re.compile(r"^[\w\d\.\:_]+$")
 
@@ -267,6 +268,7 @@ class Task(DatasetProviderBase):
             metric_fns: Optional[Sequence[MetricFnCallable]] = None,
             additional_task_info: Optional[Dict] = None,
             columns: Optional[str] = None,
+            best_fn: Optional[Callable[..., Tuple[bool, Dict[str, float]]]] = None,
             num_proc: Optional[int] = None):
         """Task constructor.
 
@@ -327,6 +329,8 @@ class Task(DatasetProviderBase):
         self._metric_fns = tuple(metric_fns)
         self._postprocess_fn = postprocess_fn
 
+        self._best_fn = best_fn
+
         self._output_features = collections.OrderedDict(
             sorted(list(output_features.items()))
         )
@@ -376,11 +380,17 @@ class Task(DatasetProviderBase):
         return self._additional_task_info
     
     @property
-    def colums(self) -> Sequence[str]:
+    def columns(self) -> Sequence[str]:
         if self._columns is None:
             return ['input_ids', 'attention_mask', 'labels']
         else:
             return self._columns
+    
+    @property
+    def best_fn(self) -> Callable[..., Tuple[bool, Dict[str, float]]]:
+        if self._best_fn is None:
+            return evaluation.BestScore()
+        return self._best_fn
 
     def num_input_examples(self, split: str) -> Optional[int]:
         return self.source.num_input_examples(split)

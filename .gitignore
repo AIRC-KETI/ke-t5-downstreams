@@ -34,6 +34,7 @@ MANIFEST
 src_tmp/
 src/
 tmp/
+output/
 downstream_pipe/
 cache_dir/
 hf_test.py

@@ -23,7 +23,6 @@ def get_default_vocabulary():
 
 @gin.configurable
 def get_vocabulary(vocab_name=None):
-    print(vocab_name)
     if vocab_name is None:
         return get_default_vocabulary()
     else:

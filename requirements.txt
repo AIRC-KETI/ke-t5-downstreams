@@ -1,6 +1,8 @@
 gin-config
-seqio
 pytorch-crf
 transformers
 sentencepiece
+rouge_score
+sklearn
+sacrebleu
 datasets==1.5.0
