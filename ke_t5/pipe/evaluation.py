@@ -55,7 +55,7 @@ class LessIsTheBest(BestScore):
         return {self._metric_name: np.inf}
 
 class GreaterIsTheBest(BestScore):
-    def __init__(self, metric_name='loss'):
+    def __init__(self, metric_name='accuracy'):
         self._metric_name = metric_name
     
     def is_best(self, avg_dict, prev_best):
