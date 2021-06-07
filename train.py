@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from __future__ import print_function, division
-from inspect import isfunction
 import os
 from re import split
 import time
@@ -75,7 +74,7 @@ flags.DEFINE_string("valid_split", 'train[90%:]',
                     "name of validation split")
 flags.DEFINE_integer("batch_size", 16, "mini batch size")
 flags.DEFINE_integer("workers", 0, "number of workers for dataloader")
-flags.DEFINE_integer("epochs", 2, "number of epochs for training")
+flags.DEFINE_integer("epochs", 3, "number of epochs for training")
 flags.DEFINE_integer("start_epoch", 0, "start epoch")
 flags.DEFINE_integer("print_freq", 100, "print frequency")
 FLAGS = flags.FLAGS
@@ -154,7 +153,7 @@ def main(_):
       test_dataset = get_dataset(task, split=FLAGS.valid_split)
       test_dataset.set_format('torch', columns=task.columns, device='cuda')
       test_loader = DataLoader(test_dataset, batch_size=FLAGS.batch_size,
-                                 shuffle=True, num_workers=FLAGS.workers)
+                                 shuffle=False, num_workers=FLAGS.workers)
       metric_meter = validate(test_loader, model, 0, FLAGS, metric_meter)
       score_log = metric_meter.get_score_str("test")
       print('-'*10 + 'test'+'-'*10+'\n'+score_log+'-'*24)
@@ -172,7 +171,7 @@ def main(_):
     train_loader = DataLoader(train_dataset, batch_size=FLAGS.batch_size,
                                   shuffle=True, num_workers=FLAGS.workers)
     test_loader = DataLoader(test_dataset, batch_size=FLAGS.batch_size,
-                                 shuffle=True, num_workers=FLAGS.workers)
+                                 shuffle=False, num_workers=FLAGS.workers)
 
     # run training
     for epoch in range(FLAGS.start_epoch, FLAGS.epochs):

@@ -132,14 +132,23 @@ class MetricMeter(object):
         else:
             for am_name in self._average_meters.keys():
                 self._average_meters[am_name].reset()
+    
+    def set_average_scores(self, average_scores):
+        for k, v in average_scores.items():
+            average_meter = self._get_averagemeter(k)
+            average_meter.update(v)
 
     def get_average_scores(self):
         return {k: v.avg for k, v in self._average_meters.items()}
 
-    def get_score_str(self, tag_name='eval'):
-        metric_str = ''.join([
-            "{tag_name}/{tag}: {metric_value:.3f}\t".format(tag_name=tag_name, tag=k, metric_value=v) for k, v in self.get_average_scores().items()])
-        return metric_str
+    def get_score_str(self, tag_name='eval', average_scores=None):
+        if average_scores is None:
+            return ''.join([
+                "{tag_name}/{tag}: {metric_value:.3f}\t".format(tag_name=tag_name, tag=k, metric_value=v) for k, v in self.get_average_scores().items()])
+        else:
+            return ''.join([
+                "{tag_name}/{tag}: {metric_value:.3f}\t".format(tag_name=tag_name, tag=k, metric_value=v) for k, v in average_scores.items()])
+
 
 class Logger(abc.ABC):
 
