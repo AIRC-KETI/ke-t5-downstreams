@@ -57,7 +57,7 @@ flags.DEFINE_string("model_name", 'ke_t5.models.models:T5EncoderForSequenceClass
                     "name of task.")
 flags.DEFINE_string("pre_trained_model", 'KETI-AIR/ke-t5-small',
                     "name or path of pretrained model.")
-flags.DEFINE_string("hf_data_dir", '../Korean-Copora/data',
+flags.DEFINE_string("hf_data_dir", './data',
                     "data directory for huggingface dataset."
                     "it is equivalent to the manual directory in tfds."
                     "if you use NIKL dataset, you have to set this variable correctly"
@@ -80,9 +80,9 @@ flags.DEFINE_string("train_split", 'train[:90%]',
                     "name of train split")
 flags.DEFINE_string("valid_split", 'train[90%:]',
                     "name of validation split")
-flags.DEFINE_integer("batch_size", 64, "mini batch size")
+flags.DEFINE_integer("batch_size", 8, "mini batch size")
 flags.DEFINE_integer("workers", 0, "number of workers for dataloader")
-flags.DEFINE_integer("epochs", 2, "number of epochs for training")
+flags.DEFINE_integer("epochs", 3, "number of epochs for training")
 flags.DEFINE_integer("start_epoch", 0, "start epoch")
 flags.DEFINE_integer("print_freq", 100, "print frequency")
 
@@ -332,7 +332,9 @@ def validate(eval_loader, model, epoch, args, metric_meter):
 
             # update metrics
             metric_meter.update_scores("loss", loss.cpu().numpy())
-            metric_meter.update_metrics(batch['labels'], predictions)
+            targets = batch['labels'].cpu().numpy()
+            predictions = predictions.cpu().numpy()
+            metric_meter.update_metrics(targets, predictions)
 
             # reduce average scores
             average_scores = metric_meter.get_average_scores()
@@ -399,7 +401,9 @@ def train(train_loader, model, optimizer, epoch, args, metric_meter=None, summar
 
                 # update metrics
                 metric_meter.update_scores("loss", loss.cpu().numpy())
-                metric_meter.update_metrics(batch['labels'], predictions)
+                targets = batch['labels'].cpu().numpy()
+                predictions = predictions.cpu().numpy()
+                metric_meter.update_metrics(targets, predictions)
 
                 average_scores = metric_meter.get_average_scores()
                 average_scores = {k:reduce_tensor(torch.tensor(v, device='cuda'), args).cpu().numpy() for k, v in average_scores.items()}
@@ -434,5 +438,11 @@ if __name__ == "__main__":
 # python -m torch.distributed.launch --nproc_per_node=1 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --model_name="transformers:AutoModelForSequenceClassification" --pre_trained_model="bert-base-uncased"
 # python -m torch.distributed.launch --nproc_per_node=1 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_param="get_dataset.sequence_length={'inputs':512, 'targets':512}" --model_name="transformers:AutoModelForSequenceClassification" --pre_trained_model="bert-base-uncased"
 
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py train.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin"
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py train.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --resume output/ke_t5.models.models:T5EncoderForSequenceClassificationMean_KETI-AIR/ke-t5-small/weights/best_model.pth --test true --valid_split "test"
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin"
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --resume output/ke_t5.models.models:T5EncoderForSequenceClassificationMean_KETI-AIR/ke-t5-small/weights/best_model.pth --test true --valid_split "test"
+
+
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_tc'
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_re'
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_nli'
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'

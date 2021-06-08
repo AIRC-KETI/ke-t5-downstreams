@@ -37,6 +37,7 @@ tmp/
 output/
 downstream_pipe/
 cache_dir/
+data/
 hf_test.py
 hf_vocab_test.py
 ner_test.py

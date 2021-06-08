@@ -142,6 +142,29 @@ def re_preproc_for_classification(
 
 
 @seq_pipe.map_over_dataset
+def base_preproc_for_conditional_generation(
+        x,
+        prefix,
+        input_keys,
+        with_feature_key=True,
+        sep=' '):
+    strs_to_join = []
+    for key in input_keys:
+        if with_feature_key:
+            strs_to_join.append('{}:'.format(key))
+        strs_to_join.append(x[key])
+
+    ex = {}
+
+    strs_to_join.insert(0, prefix)
+
+    joined = sep.join(strs_to_join)
+    ex['inputs'] = joined
+
+    return ex
+
+
+@seq_pipe.map_over_dataset
 def preprocess_quad(x, benchmark_name, include_context=True, impossible_answer_text='impossible', pad_punct=True):
     
     a = x['answers']['text']
@@ -180,3 +203,44 @@ def preprocess_quad(x, benchmark_name, include_context=True, impossible_answer_t
     }
 
 
+@seq_pipe.map_over_dataset
+def tokenize_and_preproc_iob2(x, output_features, tags=None, iob2_tags=None, tag_label='NE', input_key='inputs'):
+
+    ret = {}
+
+    inputs = x[input_key]
+    tokenizer = output_features[input_key].tokenizer
+    ret[f'{input_key}_pretokenized'] = inputs
+    input_hf = tokenizer(inputs)
+    input_ids = input_hf.input_ids
+    ret[f'{input_key}'] = input_ids
+    ret[f'{input_key}_tokens'] = [tokenizer._convert_id_to_token(x) for x in input_ids]
+
+    if tags and iob2_tags:
+        outside_label = iob2_tags.index('O')
+        tag_labels = x[tag_label]
+        labels = np.ones_like(input_ids, dtype=np.int32) * outside_label
+
+        for begin, end, label in zip(tag_labels['begin'], tag_labels['end'], tag_labels['label']):
+            label_txt = tags[label]
+            if label_txt != 'O':
+                pos_list = [input_hf.char_to_token(pos) for pos in range(begin, end)]
+
+                is_none = False
+                for index in pos_list:
+                    if index is None:
+                        is_none = True
+                if is_none:
+                    print(x)
+
+                # there is  None position in the case consecutive white spaces.
+                pos_list = [x for x in pos_list if x is not None]
+                token_set = set(pos_list)
+                token_set_order = sorted(list(token_set))
+                for iter_idx, tk_idx in enumerate(token_set_order):
+                    if iter_idx == 0:
+                        labels[tk_idx] = iob2_tags.index('B-'+label_txt)
+                    else:
+                        labels[tk_idx] = iob2_tags.index('I-'+label_txt)
+        ret['labels'] = labels
+    return ret

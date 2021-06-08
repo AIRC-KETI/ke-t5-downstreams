@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from typing import Mapping, Optional, Any
 
 import datasets
@@ -51,16 +52,6 @@ def rekey(x, key_map=None):
             new_key: x[old_key] if old_key else ''
             for new_key, old_key in key_map.items()
         }
-    return x
-
-@utils.map_over_dataset
-def rename_key(x, key_map=None, delete_old_key=True):
-    if key_map:
-        for new_key, old_key in key_map.items():
-            if old_key in x:
-                x[new_key] = x[old_key]
-                if delete_old_key:
-                    del x[old_key]
     return x
 
 

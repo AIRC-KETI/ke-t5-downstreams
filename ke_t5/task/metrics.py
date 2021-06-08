@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from absl import logging
+from collections import Counter
 import numpy as np
 import sacrebleu
 import scipy.stats
@@ -52,8 +53,6 @@ def bleu(targets, predictions):
     return {"bleu": bleu_score.score}
 
 # adopted from 't5' github
-
-
 def rouge(targets, predictions, score_keys=None):
     """Computes rouge score.
     Args:
@@ -92,24 +91,48 @@ def rouge(targets, predictions, score_keys=None):
     return {key: result[key].mid.fmeasure*100 for key in score_keys}
 
 # adopted from 't5' github
-
-
 def pearson_corrcoef(targets, predictions):
     """Pearson correlation coefficient."""
     return {"pearson_corrcoef":
             100 * scipy.stats.pearsonr(targets, predictions)[0]}
 
 # adopted from 't5' github
-
-
 def spearman_corrcoef(targets, predictions):
     """Spearman correlation coefficient."""
     return {"spearman_corrcoef":
             100 * scipy.stats.spearmanr(targets, predictions)[0]}
 
 # adopted from 't5' github
-
-
 def exact_match(targets, predictions):
     """Computes whether the targets match predictions exactly."""
     return {"exact_match": 100 * float(np.array_equal(targets, predictions))}
+
+
+def exact_match_str(target, prediction):
+    return {"exact_match_str": 1. if target == prediction else 0.}
+
+def exact_match_str_batch(targets, predictions):
+    return {"exact_match_str": 100 * np.average(np.array([x==y for x, y in zip(targets, predictions)], dtype=np.float))}
+
+def f1_str_base(target, prediction):
+    target = [ch for ch in target]
+    prediction = [ch for ch in prediction]
+
+    same = Counter(target) & Counter(prediction)
+    num_same = same.values()
+    if num_same == 0:
+        return 0
+    
+    precision = 1.0 * num_same / len(prediction)
+    recall = 1.0 * num_same / len(target)
+    f1 = (2 * precision * recall) / (precision + recall)
+    
+    return f1
+
+def f1_str(target, prediction):
+    return {"f1_str": 100 * f1_str_base(target, prediction)}
+
+def f1_str_batch(targets, predictions):
+    return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
+
+

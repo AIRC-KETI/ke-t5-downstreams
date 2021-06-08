@@ -50,7 +50,7 @@ def make_dir_if_not_exist(path):
 def create_directory_info(args):
 
     model_dir = os.path.join(args.output_dir, "{}_{}".format(
-        args.model_name, args.pre_trained_model))
+        args.model_name.replace('/', '_'), args.pre_trained_model.replace('/', '_')))
     weights_dir = os.path.join(model_dir, "weights")
     logs_dir = os.path.join(model_dir, "logs")
 
@@ -100,7 +100,8 @@ def get_ids_from_logits(logits):
 class MetricMeter(object):
     def __init__(self, task) -> None:
         super().__init__()
-        self.predict_metric_fns = task.predict_metric_fns
+        self.train_postprocess_fn = task.train_postprocess_fn
+        self.predict_metric_fns = task.train_metric_fns
 
         self._average_meters = {}
 
@@ -113,8 +114,9 @@ class MetricMeter(object):
             self._average_meters[metric_name] = AverageMeter()
 
     def update_metrics(self, targets, predictions):
-        targets = targets.cpu().numpy()
-        predictions = predictions.cpu().numpy()
+        if self.train_postprocess_fn is not None:
+            targets, predictions = self.train_postprocess_fn(targets, predictions)
+
         for predict_metric_fn in self.predict_metric_fns:
             scores_dict = predict_metric_fn(targets, predictions)
             for score_name, score in scores_dict.items():
