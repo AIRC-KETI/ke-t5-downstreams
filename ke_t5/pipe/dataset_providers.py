@@ -266,8 +266,11 @@ class Task(DatasetProviderBase):
             preprocessors: Optional[Sequence[Callable[..., Dataset]]] = None,
             postprocess_fn: Optional[Callable[..., Any]] = None,
             metric_fns: Optional[Sequence[MetricFnCallable]] = None,
+            train_metric_fns: Optional[Sequence[MetricFnCallable]] = None,
+            train_postprocess_fn: Optional[Callable[..., Any]] = None,
             additional_task_info: Optional[Dict] = None,
             columns: Optional[str] = None,
+            model_input_columns: Optional[str] = None,
             best_fn: Optional[Callable[..., Tuple[bool, Dict[str, float]]]] = None,
             num_proc: Optional[int] = None):
         """Task constructor.
@@ -313,6 +316,12 @@ class Task(DatasetProviderBase):
                     "Metric functions must have positional arguments matching either "
                     "('targets', 'predictions') or ('targets', 'scores'). "
                     f"Got: {pos_args}")
+        
+        train_metric_fns = train_metric_fns or []
+        self._train_metric_fns = []
+
+        for train_metric_fn in train_metric_fns:
+            self._train_metric_fns.append(train_metric_fn)
 
         self._name = name
         self._source = source
@@ -325,9 +334,12 @@ class Task(DatasetProviderBase):
         self._preprocessors = preprocessors
 
         self._columns = columns
+        self._model_input_columns = model_input_columns
 
         self._metric_fns = tuple(metric_fns)
         self._postprocess_fn = postprocess_fn
+
+        self._train_postprocess_fn = train_postprocess_fn
 
         self._best_fn = best_fn
 
@@ -353,6 +365,11 @@ class Task(DatasetProviderBase):
     def predict_metric_fns(self) -> Sequence[MetricFnCallable]:
         """List of metric functions that use model predictions."""
         return self._predict_metric_fns
+    
+    @property
+    def train_metric_fns(self) -> Sequence[MetricFnCallable]:
+        """List of metric functions that use model predictions."""
+        return self._train_metric_fns
 
     @property
     def output_features(self) -> Mapping[str, Feature]:
@@ -387,10 +404,24 @@ class Task(DatasetProviderBase):
             return self._columns
     
     @property
+    def model_input_columns(self) -> Sequence[str]:
+        if self._model_input_columns is None:
+            return ['input_ids', 'attention_mask', 'labels']
+        else:
+            return self._model_input_columns
+    
+    @property
     def best_fn(self) -> Callable[..., Tuple[bool, Dict[str, float]]]:
         if self._best_fn is None:
             return evaluation.BestScore()
         return self._best_fn
+    
+    @property
+    def train_postprocess_fn(self):
+        return self._train_postprocess_fn
+    
+    def select_model_inputs(self, data):
+        return {k:v for k, v in data.items() if k in self.model_input_columns}
 
     def num_input_examples(self, split: str) -> Optional[int]:
         return self.source.num_input_examples(split)
