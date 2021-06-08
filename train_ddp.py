@@ -24,6 +24,7 @@ import gin.torch
 
 from absl import app
 from absl import flags
+from absl import logging
 
 import torch
 from torch.utils.data import DataLoader
@@ -57,7 +58,7 @@ flags.DEFINE_string("model_name", 'ke_t5.models.models:T5EncoderForSequenceClass
                     "name of task.")
 flags.DEFINE_string("pre_trained_model", 'KETI-AIR/ke-t5-small',
                     "name or path of pretrained model.")
-flags.DEFINE_string("hf_data_dir", '../Korean-Copora/data',
+flags.DEFINE_string("hf_data_dir", './data',
                     "data directory for huggingface dataset."
                     "it is equivalent to the manual directory in tfds."
                     "if you use NIKL dataset, you have to set this variable correctly"
@@ -80,9 +81,9 @@ flags.DEFINE_string("train_split", 'train[:90%]',
                     "name of train split")
 flags.DEFINE_string("valid_split", 'train[90%:]',
                     "name of validation split")
-flags.DEFINE_integer("batch_size", 64, "mini batch size")
+flags.DEFINE_integer("batch_size", 8, "mini batch size")
 flags.DEFINE_integer("workers", 0, "number of workers for dataloader")
-flags.DEFINE_integer("epochs", 2, "number of epochs for training")
+flags.DEFINE_integer("epochs", 3, "number of epochs for training")
 flags.DEFINE_integer("start_epoch", 0, "start epoch")
 flags.DEFINE_integer("print_freq", 100, "print frequency")
 
@@ -206,7 +207,7 @@ def main(_):
         # Use a local scope to avoid dangling references
         def resume():
             if os.path.isfile(FLAGS.resume):
-                print("=> loading checkpoint '{}'".format(FLAGS.resume))
+                logging.info("=> loading checkpoint '{}'".format(FLAGS.resume))
                 checkpoint = torch.load(
                     FLAGS.resume, map_location=lambda storage, loc: storage.cuda(FLAGS.gpu))
                 FLAGS.start_epoch = checkpoint['epoch']
@@ -215,16 +216,16 @@ def main(_):
 
                 if FLAGS.local_rank == 0 or not FLAGS.distributed:
                     best_score = checkpoint['best_score']
-                print("=> loaded checkpoint '{}' (epoch {})"
+                logging.info("=> loaded checkpoint '{}' (epoch {})"
                       .format(FLAGS.resume, checkpoint['epoch']))
             else:
-                print("=> no checkpoint found at '{}'".format(FLAGS.resume))
+                logging.info("=> no checkpoint found at '{}'".format(FLAGS.resume))
         resume()
 
     if FLAGS.hf_path:
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
             model.save_pretrained(FLAGS.hf_path)
-            print('hf model is saved in {}'.format(FLAGS.hf_path))
+            logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
         exit()
 
     if FLAGS.test:
@@ -241,7 +242,7 @@ def main(_):
         metric_meter = validate(test_loader, model, 0, FLAGS, metric_meter)
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
             score_log = metric_meter.get_score_str("test")
-            print('-'*10 + 'test'+'-'*10+'\n'+score_log+ '\n' + '-'*24)
+            logging.info('\n' + '-'*10 + 'test'+'-'*10+'\n'+score_log+ '\n' + '-'*24)
         exit()
 
     # load dataset
@@ -281,9 +282,9 @@ def main(_):
             train_sampler.set_epoch(epoch)
 
         train(train_loader, model, optimizer, epoch,
-              FLAGS, metric_meter, summary_logger)
+              FLAGS, task, metric_meter, summary_logger)
 
-        metric_meter = validate(test_loader, model, epoch, FLAGS, metric_meter)
+        metric_meter = validate(test_loader, model, epoch, FLAGS, task, metric_meter)
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
             avg_scores = metric_meter.get_average_scores()
 
@@ -305,7 +306,7 @@ def main(_):
                 "eval")
 
 
-def validate(eval_loader, model, epoch, args, metric_meter):
+def validate(eval_loader, model, epoch, args, task, metric_meter):
     batch_time = utils.AverageMeter()
     
     # reset metric_meter
@@ -318,9 +319,11 @@ def validate(eval_loader, model, epoch, args, metric_meter):
         end = time.time()
 
         for step_inbatch, batch in enumerate(eval_loader):
+            # select model inputs
+            inputs = task.select_model_inputs(batch)
             # forward pass
             outputs = model(
-                **batch
+                **inputs
             )
 
             # get loss and logits
@@ -332,7 +335,9 @@ def validate(eval_loader, model, epoch, args, metric_meter):
 
             # update metrics
             metric_meter.update_scores("loss", loss.cpu().numpy())
-            metric_meter.update_metrics(batch['labels'], predictions)
+            targets = batch['labels'].cpu().numpy()
+            predictions = predictions.cpu().numpy()
+            metric_meter.update_metrics(targets, predictions)
 
             # reduce average scores
             average_scores = metric_meter.get_average_scores()
@@ -345,13 +350,13 @@ def validate(eval_loader, model, epoch, args, metric_meter):
                 if args.local_rank == 0 or not args.distributed:
                     score_log = metric_meter.get_score_str("eval", average_scores=average_scores)
 
-                    print('-----Evaluation-----\n Epoch: [{0}][{1}/{2}]\t'
+                    logging.info('-----Evaluation----- Epoch: [{0}][{1}/{2}]\t'
                             'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                             'Speed {3:.3f} ({4:.3f})\t'.format(
                                 epoch, step_inbatch, len(eval_loader),
                                 args.batch_size/batch_time.val,
                                 args.batch_size/batch_time.avg,
-                                batch_time=batch_time) + score_log + '\n' + '-'*24)
+                                batch_time=batch_time) + score_log)
     
     # recude final scores
     average_scores = metric_meter.get_average_scores()
@@ -361,7 +366,7 @@ def validate(eval_loader, model, epoch, args, metric_meter):
     return metric_meter
 
 
-def train(train_loader, model, optimizer, epoch, args, metric_meter=None, summary_logger=None):
+def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, summary_logger=None):
     # calc batch time
     batch_time = utils.AverageMeter()
     
@@ -374,9 +379,11 @@ def train(train_loader, model, optimizer, epoch, args, metric_meter=None, summar
     end = time.time()
 
     for step_inbatch, batch in enumerate(train_loader):
+        # select model inputs
+        inputs = task.select_model_inputs(batch)
         # forward pass
         outputs = model(
-            **batch
+            **inputs
         )
 
         # get loss and logits
@@ -399,7 +406,9 @@ def train(train_loader, model, optimizer, epoch, args, metric_meter=None, summar
 
                 # update metrics
                 metric_meter.update_scores("loss", loss.cpu().numpy())
-                metric_meter.update_metrics(batch['labels'], predictions)
+                targets = batch['labels'].cpu().numpy()
+                predictions = predictions.cpu().numpy()
+                metric_meter.update_metrics(targets, predictions)
 
                 average_scores = metric_meter.get_average_scores()
                 average_scores = {k:reduce_tensor(torch.tensor(v, device='cuda'), args).cpu().numpy() for k, v in average_scores.items()}
@@ -410,13 +419,13 @@ def train(train_loader, model, optimizer, epoch, args, metric_meter=None, summar
                         global_step,
                         args.task,
                         "train")
-                    print('Epoch: [{0}][{1}/{2}]\t'
+                    logging.info('-----Training----- Epoch: [{0}][{1}/{2}]\t'
                           'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                           'Speed {3:.3f} ({4:.3f})\t'.format(
                               epoch, step_inbatch, steps_per_epoch,
                               args.batch_size/batch_time.val,
                               args.batch_size/batch_time.avg,
-                              batch_time=batch_time)+score_log+ '\n' + '-'*24)
+                              batch_time=batch_time)+score_log)
 
 
 
@@ -434,5 +443,13 @@ if __name__ == "__main__":
 # python -m torch.distributed.launch --nproc_per_node=1 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --model_name="transformers:AutoModelForSequenceClassification" --pre_trained_model="bert-base-uncased"
 # python -m torch.distributed.launch --nproc_per_node=1 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_param="get_dataset.sequence_length={'inputs':512, 'targets':512}" --model_name="transformers:AutoModelForSequenceClassification" --pre_trained_model="bert-base-uncased"
 
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py train.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin"
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py train.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --resume output/ke_t5.models.models:T5EncoderForSequenceClassificationMean_KETI-AIR/ke-t5-small/weights/best_model.pth --test true --valid_split "test"
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin"
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --resume output/ke_t5.models.models:T5EncoderForSequenceClassificationMean_KETI-AIR/ke-t5-small/weights/best_model.pth --test true --valid_split "test"
+
+
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_tc'
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_re'
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_nli'
+
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'nikl_summarization_topic'

@@ -24,6 +24,7 @@ import gin.torch
 
 from absl import app
 from absl import flags
+from absl import logging
 
 import torch
 from torch.utils.data import DataLoader
@@ -49,7 +50,7 @@ flags.DEFINE_string("model_name", 'ke_t5.models.models:T5EncoderForSequenceClass
                     "name of task.")
 flags.DEFINE_string("pre_trained_model", 'KETI-AIR/ke-t5-small',
                     "name or path of pretrained model.")
-flags.DEFINE_string("hf_data_dir", '../Korean-Copora/data',
+flags.DEFINE_string("hf_data_dir", './data',
                     "data directory for huggingface dataset."
                     "it is equivalent to the manual directory in tfds."
                     "if you use NIKL dataset, you have to set this variable correctly"
@@ -132,21 +133,21 @@ def main(_):
         # Use a local scope to avoid dangling references
         def resume():
             if os.path.isfile(FLAGS.resume):
-                print("=> loading checkpoint '{}'".format(FLAGS.resume))
+                logging.info("=> loading checkpoint '{}'".format(FLAGS.resume))
                 checkpoint = torch.load(FLAGS.resume)
                 FLAGS.start_epoch = checkpoint['epoch']
                 best_score = checkpoint['best_score']
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
-                print("=> loaded checkpoint '{}' (epoch {})"
+                logging.info("=> loaded checkpoint '{}' (epoch {})"
                       .format(FLAGS.resume, checkpoint['epoch']))
             else:
-                print("=> no checkpoint found at '{}'".format(FLAGS.resume))
+                logging.info("=> no checkpoint found at '{}'".format(FLAGS.resume))
         resume()
     
     if FLAGS.hf_path:
         model.save_pretrained(FLAGS.hf_path)
-        print('hf model is saved in {}'.format(FLAGS.hf_path))
+        logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
         exit()
     
     if FLAGS.test:
@@ -156,7 +157,7 @@ def main(_):
                                  shuffle=False, num_workers=FLAGS.workers)
       metric_meter = validate(test_loader, model, 0, FLAGS, metric_meter)
       score_log = metric_meter.get_score_str("test")
-      print('-'*10 + 'test'+'-'*10+'\n'+score_log+'-'*24)
+      logging.info('\n' + '-'*10 + 'test'+'-'*10+'\n'+score_log+'-'*24)
       exit()
 
     # load dataset
@@ -175,9 +176,9 @@ def main(_):
 
     # run training
     for epoch in range(FLAGS.start_epoch, FLAGS.epochs):
-      train(train_loader, model, optimizer, epoch, FLAGS, metric_meter, summary_logger)
+      train(train_loader, model, optimizer, epoch, FLAGS, task, metric_meter, summary_logger)
 
-      metric_meter = validate(test_loader, model, epoch, FLAGS, metric_meter)
+      metric_meter = validate(test_loader, model, epoch, FLAGS, task, metric_meter)
       avg_scores = metric_meter.get_average_scores()
 
       is_best, best_score = best_fn.is_best(avg_scores, best_score)
@@ -198,7 +199,7 @@ def main(_):
             "eval")
 
 
-def validate(eval_loader, model, epoch, args, metric_meter):
+def validate(eval_loader, model, epoch, args, task, metric_meter):
     batch_time = utils.AverageMeter()
     metric_meter.reset()
 
@@ -209,9 +210,12 @@ def validate(eval_loader, model, epoch, args, metric_meter):
         end = time.time()
 
         for step_inbatch, batch in enumerate(eval_loader):
+            # select model inputs
+            inputs = task.select_model_inputs(batch)
+            # forward pass
             outputs = model(
-                  **batch
-              )
+                **inputs
+            )
 
             loss = outputs[0]
             logits = outputs[1]
@@ -227,7 +231,7 @@ def validate(eval_loader, model, epoch, args, metric_meter):
 
                 score_log = metric_meter.get_score_str("eval")
 
-                print('-----Evaluation-----\n Epoch: [{0}][{1}/{2}]\t'
+                logging.info('-----Evaluation----- Epoch: [{0}][{1}/{2}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Speed {3:.3f} ({4:.3f})\t'.format(
                        epoch, step_inbatch, len(eval_loader),
@@ -237,7 +241,7 @@ def validate(eval_loader, model, epoch, args, metric_meter):
     return metric_meter
 
 
-def train(train_loader, model, optimizer, epoch, args, metric_meter=None, summary_logger=None):
+def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, summary_logger=None):
     # calc batch time
     batch_time = utils.AverageMeter()
     metric_meter.reset()
@@ -248,8 +252,11 @@ def train(train_loader, model, optimizer, epoch, args, metric_meter=None, summar
     end = time.time()
 
     for step_inbatch, batch in enumerate(train_loader):
+        # select model inputs
+        inputs = task.select_model_inputs(batch)
+        # forward pass
         outputs = model(
-            **batch
+            **inputs
         )
 
         loss = outputs[0]
@@ -277,7 +284,7 @@ def train(train_loader, model, optimizer, epoch, args, metric_meter=None, summar
                     args.task, 
                     "train")
               
-              print('Epoch: [{0}][{1}/{2}]\t'
+              logging.info('-----Training----- Epoch: [{0}][{1}/{2}]\t'
                         'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                         'Speed {3:.3f} ({4:.3f})\t'.format(
                         epoch, step_inbatch, steps_per_epoch,
