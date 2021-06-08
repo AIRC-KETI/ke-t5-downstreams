@@ -429,9 +429,12 @@ class Task(DatasetProviderBase):
     @property
     def train_postprocess_fn(self):
         return self._train_postprocess_fn
+<<<<<<< HEAD
     
     def select_model_inputs(self, data):
         return {k:v for k, v in data.items() if k in self.model_input_columns}
+=======
+>>>>>>> main
 
     def num_input_examples(self, split: str) -> Optional[int]:
         return self.source.num_input_examples(split)

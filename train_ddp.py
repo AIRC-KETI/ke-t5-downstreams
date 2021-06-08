@@ -450,6 +450,10 @@ if __name__ == "__main__":
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_tc'
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_re'
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_nli'
+<<<<<<< HEAD
 
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'nikl_summarization_topic'
+=======
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
+>>>>>>> main
