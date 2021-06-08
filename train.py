@@ -142,10 +142,16 @@ def main(_):
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
                 logging.info("=> loaded checkpoint '{}' (epoch {})"
+<<<<<<< HEAD
                              .format(FLAGS.resume, checkpoint['epoch']))
             else:
                 logging.info(
                     "=> no checkpoint found at '{}'".format(FLAGS.resume))
+=======
+                      .format(FLAGS.resume, checkpoint['epoch']))
+            else:
+                logging.info("=> no checkpoint found at '{}'".format(FLAGS.resume))
+>>>>>>> main
         resume()
 
     if FLAGS.hf_path:
@@ -158,10 +164,17 @@ def main(_):
         test_dataset.set_format('torch', columns=task.columns, device='cuda')
         test_loader = DataLoader(test_dataset, batch_size=FLAGS.batch_size,
                                  shuffle=False, num_workers=FLAGS.workers)
+<<<<<<< HEAD
         metric_meter = validate(test_loader, model, 0, FLAGS, metric_meter)
         score_log = metric_meter.get_score_str("test")
         logging.info('\n' + '-'*10 + 'test'+'-'*10+'\n'+score_log+'-'*24)
         exit()
+=======
+      metric_meter = validate(test_loader, model, 0, FLAGS, metric_meter)
+      score_log = metric_meter.get_score_str("test")
+      logging.info('\n' + '-'*10 + 'test'+'-'*10+'\n'+score_log+'-'*24)
+      exit()
+>>>>>>> main
 
     # load dataset
     train_dataset = get_dataset(task, split=FLAGS.train_split)
@@ -179,6 +192,7 @@ def main(_):
 
     # run training
     for epoch in range(FLAGS.start_epoch, FLAGS.epochs):
+<<<<<<< HEAD
         train(train_loader, model, optimizer, epoch,
               FLAGS, task, metric_meter, summary_logger)
 
@@ -195,6 +209,22 @@ def main(_):
             'optimizer': optimizer.state_dict(),
         }, is_best,
             path_info["ckpt_path"],
+=======
+      train(train_loader, model, optimizer, epoch, FLAGS, task, metric_meter, summary_logger)
+
+      metric_meter = validate(test_loader, model, epoch, FLAGS, task, metric_meter)
+      avg_scores = metric_meter.get_average_scores()
+
+      is_best, best_score = best_fn.is_best(avg_scores, best_score)
+
+      utils.save_checkpoint({
+                'epoch': epoch + 1,
+                'state_dict': model.state_dict(),
+                'best_score': best_score,
+                'optimizer' : optimizer.state_dict(),
+            }, is_best,
+            path_info["ckpt_path"], 
+>>>>>>> main
             path_info["best_model_path"])
 
         summary_logger(
@@ -239,6 +269,7 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
 
                 score_log = metric_meter.get_score_str("eval")
 
+<<<<<<< HEAD
                 logging.info('-----Evaluation----- \nEpoch: [{0}][{1}/{2}]\t'
                              'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                              'Speed {3:.3f} ({4:.3f})\t'.format(
@@ -246,6 +277,15 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
                                  args.batch_size/batch_time.val,
                                  args.batch_size/batch_time.avg,
                                  batch_time=batch_time) + score_log)
+=======
+                logging.info('-----Evaluation----- Epoch: [{0}][{1}/{2}]\t'
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Speed {3:.3f} ({4:.3f})\t'.format(
+                       epoch, step_inbatch, len(eval_loader),
+                       args.batch_size/batch_time.val,
+                       args.batch_size/batch_time.avg,
+                       batch_time=batch_time) + score_log)
+>>>>>>> main
     return metric_meter
 
 
@@ -294,6 +334,7 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
                     global_step,
                     args.task,
                     "train")
+<<<<<<< HEAD
 
                 logging.info('-----Training----- \nEpoch: [{0}][{1}/{2}]\t'
                              'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -302,6 +343,16 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
                                  args.batch_size/batch_time.val,
                                  args.batch_size/batch_time.avg,
                                  batch_time=batch_time)+score_log)
+=======
+              
+              logging.info('-----Training----- Epoch: [{0}][{1}/{2}]\t'
+                        'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                        'Speed {3:.3f} ({4:.3f})\t'.format(
+                        epoch, step_inbatch, steps_per_epoch,
+                        args.batch_size/batch_time.val,
+                        args.batch_size/batch_time.avg,
+                        batch_time=batch_time)+score_log)
+>>>>>>> main
 
 
 if __name__ == "__main__":

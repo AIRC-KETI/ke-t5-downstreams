@@ -27,6 +27,10 @@ def postprocess_for_generator(targets, predictions, tokenizer):
     eos_id = tokenizer.eos_token_id
     targets = [tokenizer.decode(_to_eos(sent, eos_id), skip_special_tokens=True) for sent in targets]
     predictions = [tokenizer.decode(_to_eos(sent, eos_id), skip_special_tokens=True) for sent in predictions]
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> main
     return targets, predictions
     
 
@@ -34,5 +38,17 @@ def decode_for_generator(gathered_dict, decode_keys, tokenizer):
     eos_id = tokenizer.eos_token_id
     for k in decode_keys:
         gathered_dict[k] = [tokenizer.decode(_to_eos(sent, eos_id), skip_special_tokens=True) for sent in gathered_dict[k]]
+<<<<<<< HEAD
     return gathered_dict
+=======
+
+    return gathered_dict
+=======
+    print(targets[0])
+    print(predictions[0])
+    return targets, predictions
+    
+
+>>>>>>> main
+>>>>>>> main
 

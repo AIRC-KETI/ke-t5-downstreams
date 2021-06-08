@@ -113,9 +113,15 @@ class MetricMeter(object):
         if metric_name not in self._average_meters:
             self._average_meters[metric_name] = AverageMeter()
 
+<<<<<<< HEAD
     def update_metrics(self, gathered_dict):
         if self.train_postprocess_fn is not None:
             gathered_dict = self.train_postprocess_fn(gathered_dict)
+=======
+    def update_metrics(self, targets, predictions):
+        if self.train_postprocess_fn is not None:
+            targets, predictions = self.train_postprocess_fn(targets, predictions)
+>>>>>>> main
 
         for predict_metric_fn in self.predict_metric_fns:
             scores_dict = predict_metric_fn(gathered_dict)

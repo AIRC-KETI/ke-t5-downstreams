@@ -53,8 +53,13 @@ def bleu_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
                                        use_effective_order=False)
     return {"bleu": bleu_score.score}
 
+<<<<<<< HEAD
 
 def rouge_dict(gathered_dict, target_key='labels', prediction_key='predictions', score_keys=None):
+=======
+# adopted from 't5' github
+def rouge(targets, predictions, score_keys=None):
+>>>>>>> main
     """Computes rouge score.
     Args:
       targets: list of strings
@@ -83,6 +88,7 @@ def rouge_dict(gathered_dict, target_key='labels', prediction_key='predictions',
         aggregator.add_scores(scorer.score(
             target=target, prediction=prediction))
     result = aggregator.aggregate()
+<<<<<<< HEAD
     return {key: result[key].mid.fmeasure*100 for key in score_keys}
 
 
@@ -113,6 +119,20 @@ def f1_str_dict(gathered_dict, target_key='labels', prediction_key='predictions'
 
 
 def pearson_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
+=======
+    # for key in score_keys:
+    #     logging.info(
+    #         "%s = %.2f, 95%% confidence [%.2f, %.2f]",
+    #         key,
+    #         result[key].mid.fmeasure*100,
+    #         result[key].low.fmeasure*100,
+    #         result[key].high.fmeasure*100,
+    #     )
+    return {key: result[key].mid.fmeasure*100 for key in score_keys}
+
+# adopted from 't5' github
+def pearson_corrcoef(targets, predictions):
+>>>>>>> main
     """Pearson correlation coefficient."""
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
@@ -120,13 +140,18 @@ def pearson_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='pr
             100 * scipy.stats.pearsonr(targets, predictions)[0]}
 
 # adopted from 't5' github
+<<<<<<< HEAD
 def spearman_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
+=======
+def spearman_corrcoef(targets, predictions):
+>>>>>>> main
     """Spearman correlation coefficient."""
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
     return {"spearman_corrcoef":
             100 * scipy.stats.spearmanr(targets, predictions)[0]}
 
+<<<<<<< HEAD
 
 
 
@@ -245,5 +270,39 @@ def spearman_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='p
 
 # def f1_str_batch(targets, predictions):
 #     return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
+=======
+# adopted from 't5' github
+def exact_match(targets, predictions):
+    """Computes whether the targets match predictions exactly."""
+    return {"exact_match": 100 * float(np.array_equal(targets, predictions))}
+
+
+def exact_match_str(target, prediction):
+    return {"exact_match_str": 1. if target == prediction else 0.}
+
+def exact_match_str_batch(targets, predictions):
+    return {"exact_match_str": 100 * np.average(np.array([x==y for x, y in zip(targets, predictions)], dtype=np.float))}
+
+def f1_str_base(target, prediction):
+    target = [ch for ch in target]
+    prediction = [ch for ch in prediction]
+
+    same = Counter(target) & Counter(prediction)
+    num_same = same.values()
+    if num_same == 0:
+        return 0
+    
+    precision = 1.0 * num_same / len(prediction)
+    recall = 1.0 * num_same / len(target)
+    f1 = (2 * precision * recall) / (precision + recall)
+    
+    return f1
+
+def f1_str(target, prediction):
+    return {"f1_str": 100 * f1_str_base(target, prediction)}
+
+def f1_str_batch(targets, predictions):
+    return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
+>>>>>>> main
 
 
