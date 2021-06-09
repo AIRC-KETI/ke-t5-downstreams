@@ -226,7 +226,11 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
             logits = outputs[1]
 
             # update scores
-            predictions = utils.get_ids_from_logits(logits)
+            if task.logit_to_id:
+                predictions = utils.get_ids_from_logits(logits.clone())
+            else:
+                predictions = logits.clone()
+
             metric_meter.update_scores("loss", loss.cpu().numpy())
             predictions = predictions.cpu().numpy()
             gathered_dict = {k: v.cpu().numpy() for k, v in batch.items()}
@@ -282,7 +286,10 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
                 batch_time.update((time.time() - end)/args.print_freq)
                 end = time.time()
 
-                predictions = utils.get_ids_from_logits(logits)
+                if task.logit_to_id:
+                    predictions = utils.get_ids_from_logits(logits.clone())
+                else:
+                    predictions = logits.clone()
 
                 predictions = predictions.cpu().numpy()
                 gathered_dict = {k: v.cpu().numpy() for k, v in batch.items()}

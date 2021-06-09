@@ -115,6 +115,7 @@ def pearson_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='pr
     """Pearson correlation coefficient."""
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
+    predictions = np.squeeze(predictions)
     return {"pearson_corrcoef":
             100 * scipy.stats.pearsonr(targets, predictions)[0]}
 
@@ -123,6 +124,7 @@ def spearman_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='p
     """Spearman correlation coefficient."""
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
+    predictions = np.squeeze(predictions)
     return {"spearman_corrcoef":
             100 * scipy.stats.spearmanr(targets, predictions)[0]}
 
@@ -250,5 +252,4 @@ def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='
 
 # def f1_str_batch(targets, predictions):
 #     return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
-
-
+# sklearn.metrics.matthews_corrcoef(y_true, y_pred, *, sample_weight=None)[source]

@@ -272,6 +272,7 @@ class Task(DatasetProviderBase):
             columns: Optional[str] = None,
             model_input_columns: Optional[str] = None,
             best_fn: Optional[Callable[..., Tuple[bool, Dict[str, float]]]] = None,
+            logit_to_id: Optional[bool] = True,
             num_proc: Optional[int] = None):
         """Task constructor.
 
@@ -342,6 +343,7 @@ class Task(DatasetProviderBase):
         self._train_postprocess_fn = train_postprocess_fn
 
         self._best_fn = best_fn
+        self._logit_to_id = logit_to_id
 
         self._output_features = collections.OrderedDict(
             sorted(list(output_features.items()))
@@ -419,6 +421,13 @@ class Task(DatasetProviderBase):
     @property
     def train_postprocess_fn(self):
         return self._train_postprocess_fn
+    
+    @property
+    def logit_to_id(self):
+        if self._logit_to_id:
+            return self._logit_to_id
+        else:
+            return False
     
     def select_model_inputs(self, data):
         return {k:v for k, v in data.items() if k in self.model_input_columns}
