@@ -38,14 +38,14 @@ class BestScoreMeta(metaclass=abc.ABCMeta):
     def get_min_score(self) -> Dict[str, float]:
         raise NotImplementedError
 
-class BestScore(object):
+class BestScore(BestScoreMeta):
     def is_best(self, avg_dict: Dict[str, float], prev_best: Dict[str, float]) -> Tuple[bool, Dict[str, float]]:
         return True, prev_best
     
     def get_min_score(self) -> Dict[str, float]:
         return {'dummy': 0}
 
-class LessIsTheBest(BestScore):
+class LessIsTheBest(BestScoreMeta):
     def __init__(self, metric_name='loss'):
         self._metric_name = metric_name
     
@@ -60,7 +60,7 @@ class LessIsTheBest(BestScore):
     def get_min_score(self) -> Dict[str, float]:
         return {self._metric_name: np.inf}
 
-class GreaterIsTheBest(BestScore):
+class GreaterIsTheBest(BestScoreMeta):
     def __init__(self, metric_name='accuracy'):
         self._metric_name = metric_name
     
