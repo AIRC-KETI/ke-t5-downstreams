@@ -1031,14 +1031,15 @@ seq_pipe.TaskRegistry.add(
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
     train_postprocess_fn=functools.partial(
-            postprocessors.decode_for_generator,
+            postprocessors.decode_and_string_to_label,
             decode_keys=['predictions', 'labels'],
-            tokenizer=VOCABULARY
+            tokenizer=VOCABULARY,
+            label_info=NIKL_META['cola_classes'],
         ),
     train_metric_fns=[
-        metrics.exact_match_str_dict
+        metrics.matthews_corrcoef_dict
     ],
-    best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('matthews_corrcoef'),
     columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
@@ -1087,6 +1088,10 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
+    train_metric_fns=[
+        metrics.matthews_corrcoef_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('matthews_corrcoef'),
     columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
@@ -1216,7 +1221,7 @@ if __name__ == "__main__":
     seq_pipe.set_hf_data_dir_override("./data")
     seq_pipe.set_hf_cache_dir_override("./cache_dir/huggingface_datasets")
 
-    task = seq_pipe.get_task('korquad_gen_context_free')
+    task = seq_pipe.get_task('nikl_cola_gen')
     
     dataset = task.get_dataset(
         sequence_length={"inputs": 512, "targets": 512},

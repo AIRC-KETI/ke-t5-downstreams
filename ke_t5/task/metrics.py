@@ -129,14 +129,21 @@ def spearman_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='p
             100 * scipy.stats.spearmanr(targets, predictions)[0]}
 
 
-def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='target_pretrained', prediction_key='predictions'):
+def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='targets_attention_mask', prediction_key='predictions'):
     """Spearman correlation coefficient."""
+    targets = gathered_dict[target_key].flatten()
+    predictions = gathered_dict[prediction_key].flatten()
+    target_weights = gathered_dict[target_weights_key] if target_weights_key in gathered_dict else None
+    if target_weights is not None:
+        target_weights = target_weights.flatten()
+        return {"token_accuracy": 100*sklearn.metrics.accuracy_score(targets, predictions, sample_weight=target_weights)}
+    else:
+        return {"token_accuracy": 100*sklearn.metrics.accuracy_score(targets, predictions)}
+
+def matthews_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
-    target_weights = gathered_dict[target_weights_key]
-    return {"token_accuracy": 100*sklearn.metrics.accuracy_score(targets, predictions, target_weights)}
-
-
+    return {"matthews_corrcoef": sklearn.metrics.matthews_corrcoef(targets, predictions)}
 
 
 # # adopted from 't5' github
