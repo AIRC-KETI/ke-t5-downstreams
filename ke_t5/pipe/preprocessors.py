@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from typing import Mapping, Optional, Any
 
 import datasets
@@ -51,16 +52,6 @@ def rekey(x, key_map=None):
             new_key: x[old_key] if old_key else ''
             for new_key, old_key in key_map.items()
         }
-    return x
-
-@utils.map_over_dataset
-def rename_key(x, key_map=None, delete_old_key=True):
-    if key_map:
-        for new_key, old_key in key_map.items():
-            if old_key in x:
-                x[new_key] = x[old_key]
-                if delete_old_key:
-                    del x[old_key]
     return x
 
 
@@ -258,3 +249,32 @@ def trim_and_pad_output_features(
         ret[k] = v
     return ret
 
+@utils.map_over_dataset
+def trim_and_pad(
+    features,
+    key_pad_id_map,
+    sequence_length: Optional[SequenceLengthType] = None,
+    add_attention_mask: Optional[bool] = True,
+) -> datasets.Dataset:
+    """Trim and pad first dimension of features to `feature_lengths`.
+
+    Args:
+      dataset: tf.data.Dataset, the dataset to trimp/pad examples in.
+      feature_lengths: map from feature key to final length. Other features will
+        be returned unchanged.
+    Returns:
+      Trimmed/padded datasets.Dataset.
+    """
+    ret = {}
+    for k, v in features.items():
+        if k in key_pad_id_map:
+            pad_token_id = key_pad_id_map[k]
+            if k in sequence_length:
+                length_k = sequence_length[k]
+                v = v[:length_k]
+                pad_len = length_k - len(v)
+                v = v + [pad_token_id] * pad_len
+                if add_attention_mask:
+                    ret[f'{k}_attention_mask'] = [1]*(length_k - pad_len) + [0] * pad_len
+        ret[k] = v
+    return ret

@@ -1,4 +1,5 @@
 get_dataset.sequence_length={'inputs':512, 'targets':512}
+ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'
 
 get_optimizer.optimizer_cls=@AdamW
 AdamW.lr=1e-3

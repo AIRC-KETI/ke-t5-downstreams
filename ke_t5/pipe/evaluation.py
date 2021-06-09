@@ -12,8 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import abc
+import base64
+import concurrent
+import inspect
+import itertools
+import json
+import os
+import time
 from typing import Any, Callable, Mapping, Optional, Sequence, Tuple, Dict
 
 from absl import logging
@@ -55,7 +61,7 @@ class LessIsTheBest(BestScore):
         return {self._metric_name: np.inf}
 
 class GreaterIsTheBest(BestScore):
-    def __init__(self, metric_name='loss'):
+    def __init__(self, metric_name='accuracy'):
         self._metric_name = metric_name
     
     def is_best(self, avg_dict, prev_best):
@@ -68,3 +74,9 @@ class GreaterIsTheBest(BestScore):
     
     def get_min_score(self) -> Dict[str, float]:
         return {self._metric_name: -np.inf}
+
+
+class Evaluator(object):
+    def __init__(self, task) -> None:
+        super().__init__()
+        pass
