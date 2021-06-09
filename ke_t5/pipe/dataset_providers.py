@@ -321,25 +321,7 @@ class Task(DatasetProviderBase):
         self._train_metric_fns = []
 
         for train_metric_fn in train_metric_fns:
-<<<<<<< HEAD
             self._train_metric_fns.append(train_metric_fn)
-=======
-<<<<<<< HEAD
-            self._train_metric_fns.append(train_metric_fn)
-=======
-            pos_args = tuple(
-                key for key, param in inspect.signature(train_metric_fn).parameters.items()
-                if param.default == inspect.Parameter.empty
-            )
-            if pos_args == ("targets", "predictions"):
-                self._train_metric_fns.append(train_metric_fn)
-            else:
-                raise ValueError(
-                    "Metric functions must have positional arguments matching either "
-                    "('targets', 'predictions') or ('targets', 'scores'). "
-                    f"Got: {pos_args}")
->>>>>>> main
->>>>>>> main
 
         self._name = name
         self._source = source
@@ -437,24 +419,9 @@ class Task(DatasetProviderBase):
     @property
     def train_postprocess_fn(self):
         return self._train_postprocess_fn
-<<<<<<< HEAD
     
     def select_model_inputs(self, data):
         return {k:v for k, v in data.items() if k in self.model_input_columns}
-=======
-<<<<<<< HEAD
-    
-    def select_model_inputs(self, data):
-        return {k:v for k, v in data.items() if k in self.model_input_columns}
-=======
-<<<<<<< HEAD
-    
-    def select_model_inputs(self, data):
-        return {k:v for k, v in data.items() if k in self.model_input_columns}
-=======
->>>>>>> main
->>>>>>> main
->>>>>>> main
 
     def num_input_examples(self, split: str) -> Optional[int]:
         return self.source.num_input_examples(split)

@@ -53,18 +53,8 @@ def bleu_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
                                        use_effective_order=False)
     return {"bleu": bleu_score.score}
 
-<<<<<<< HEAD
 
 def rouge_dict(gathered_dict, target_key='labels', prediction_key='predictions', score_keys=None):
-=======
-<<<<<<< HEAD
-
-def rouge_dict(gathered_dict, target_key='labels', prediction_key='predictions', score_keys=None):
-=======
-# adopted from 't5' github
-def rouge(targets, predictions, score_keys=None):
->>>>>>> main
->>>>>>> main
     """Computes rouge score.
     Args:
       targets: list of strings
@@ -93,10 +83,6 @@ def rouge(targets, predictions, score_keys=None):
         aggregator.add_scores(scorer.score(
             target=target, prediction=prediction))
     result = aggregator.aggregate()
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> main
     return {key: result[key].mid.fmeasure*100 for key in score_keys}
 
 
@@ -110,16 +96,9 @@ def f1_str_base(target, prediction):
     prediction = [ch for ch in prediction]
 
     same = Counter(target) & Counter(prediction)
-<<<<<<< HEAD
     num_same = sum(same.values())
     if num_same == 0:
         return 0
-=======
-    num_same = same.values()
-    if num_same == 0:
-        return 0
-    
->>>>>>> main
     precision = 1.0 * num_same / len(prediction)
     recall = 1.0 * num_same / len(target)
     f1 = (2 * precision * recall) / (precision + recall)
@@ -130,53 +109,23 @@ def f1_str_dict(gathered_dict, target_key='labels', prediction_key='predictions'
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
     return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
-<<<<<<< HEAD
 
 
 def pearson_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
-=======
-
-
-def pearson_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
-=======
-    # for key in score_keys:
-    #     logging.info(
-    #         "%s = %.2f, 95%% confidence [%.2f, %.2f]",
-    #         key,
-    #         result[key].mid.fmeasure*100,
-    #         result[key].low.fmeasure*100,
-    #         result[key].high.fmeasure*100,
-    #     )
-    return {key: result[key].mid.fmeasure*100 for key in score_keys}
-
-# adopted from 't5' github
-def pearson_corrcoef(targets, predictions):
->>>>>>> main
->>>>>>> main
     """Pearson correlation coefficient."""
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
     return {"pearson_corrcoef":
             100 * scipy.stats.pearsonr(targets, predictions)[0]}
 
-<<<<<<< HEAD
 
 def spearman_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
-=======
-# adopted from 't5' github
-<<<<<<< HEAD
-def spearman_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
-=======
-def spearman_corrcoef(targets, predictions):
->>>>>>> main
->>>>>>> main
     """Spearman correlation coefficient."""
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
     return {"spearman_corrcoef":
             100 * scipy.stats.spearmanr(targets, predictions)[0]}
 
-<<<<<<< HEAD
 
 def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='target_pretrained', prediction_key='predictions'):
     """Spearman correlation coefficient."""
@@ -184,10 +133,6 @@ def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='
     predictions = gathered_dict[prediction_key]
     target_weights = gathered_dict[target_weights_key]
     return {"token_accuracy": 100*sklearn.metrics.accuracy_score(targets, predictions, target_weights)}
-=======
-<<<<<<< HEAD
-
->>>>>>> main
 
 
 
@@ -213,7 +158,6 @@ def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='
 #     else:
 #         # Need to wrap targets in another list for corpus_bleu.
 #         targets = [targets]
-<<<<<<< HEAD
 
 #     bleu_score = sacrebleu.corpus_bleu(predictions, targets,
 #                                        smooth_method="exp",
@@ -306,136 +250,5 @@ def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='
 
 # def f1_str_batch(targets, predictions):
 #     return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
-=======
->>>>>>> main
-
-#     bleu_score = sacrebleu.corpus_bleu(predictions, targets,
-#                                        smooth_method="exp",
-#                                        smooth_value=0.0,
-#                                        force=False,
-#                                        lowercase=False,
-#                                        tokenize="intl",
-#                                        use_effective_order=False)
-#     return {"bleu": bleu_score.score}
-
-<<<<<<< HEAD
-=======
-# # adopted from 't5' github
-# def rouge(targets, predictions, score_keys=None):
-#     """Computes rouge score.
-#     Args:
-#       targets: list of strings
-#       predictions: list of strings
-#       score_keys: list of strings with the keys to compute.
-#     Returns:
-#       dict with score_key: rouge score across all targets and predictions
-#     """
-
-#     if score_keys is None:
-#         score_keys = ["rouge1", "rouge2", "rougeLsum"]
-#     scorer = rouge_scorer.RougeScorer(score_keys)
-#     aggregator = scoring.BootstrapAggregator()
-
-#     def _prepare_summary(summary):
-#         # Make sure the summary is not bytes-type
-#         # Add newlines between sentences so that rougeLsum is computed correctly.
-#         summary = summary.replace(" . ", " .\n")
-#         return summary
-
-#     for prediction, target in zip(predictions, targets):
-#         target = _prepare_summary(target)
-#         prediction = _prepare_summary(prediction)
-#         aggregator.add_scores(scorer.score(
-#             target=target, prediction=prediction))
-#     result = aggregator.aggregate()
-#     # for key in score_keys:
-#     #     logging.info(
-#     #         "%s = %.2f, 95%% confidence [%.2f, %.2f]",
-#     #         key,
-#     #         result[key].mid.fmeasure*100,
-#     #         result[key].low.fmeasure*100,
-#     #         result[key].high.fmeasure*100,
-#     #     )
-#     return {key: result[key].mid.fmeasure*100 for key in score_keys}
 
 
-
-# # adopted from 't5' github
-# def pearson_corrcoef(targets, predictions):
-#     """Pearson correlation coefficient."""
-#     return {"pearson_corrcoef":
-#             100 * scipy.stats.pearsonr(targets, predictions)[0]}
-
-# # adopted from 't5' github
-# def spearman_corrcoef(targets, predictions):
-#     """Spearman correlation coefficient."""
-#     return {"spearman_corrcoef":
-#             100 * scipy.stats.spearmanr(targets, predictions)[0]}
-
-# # adopted from 't5' github
-# def exact_match(targets, predictions):
-#     """Computes whether the targets match predictions exactly."""
-#     return {"exact_match": 100 * float(np.array_equal(targets, predictions))}
-
-
-# def exact_match_str(target, prediction):
-#     return {"exact_match_str": 1. if target == prediction else 0.}
-
-
-# def f1_str_base(target, prediction):
-#     target = [ch for ch in target]
-#     prediction = [ch for ch in prediction]
-
-#     same = Counter(target) & Counter(prediction)
-#     num_same = same.values()
-#     if num_same == 0:
-#         return 0
-    
-#     precision = 1.0 * num_same / len(prediction)
-#     recall = 1.0 * num_same / len(target)
-#     f1 = (2 * precision * recall) / (precision + recall)
-    
-#     return f1
-
-# def f1_str(target, prediction):
-#     return {"f1_str": 100 * f1_str_base(target, prediction)}
-
-# def f1_str_batch(targets, predictions):
-#     return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
-=======
-# adopted from 't5' github
-def exact_match(targets, predictions):
-    """Computes whether the targets match predictions exactly."""
-    return {"exact_match": 100 * float(np.array_equal(targets, predictions))}
-
-
-def exact_match_str(target, prediction):
-    return {"exact_match_str": 1. if target == prediction else 0.}
-
-def exact_match_str_batch(targets, predictions):
-    return {"exact_match_str": 100 * np.average(np.array([x==y for x, y in zip(targets, predictions)], dtype=np.float))}
-
-def f1_str_base(target, prediction):
-    target = [ch for ch in target]
-    prediction = [ch for ch in prediction]
-
-    same = Counter(target) & Counter(prediction)
-    num_same = same.values()
-    if num_same == 0:
-        return 0
-    
-    precision = 1.0 * num_same / len(prediction)
-    recall = 1.0 * num_same / len(target)
-    f1 = (2 * precision * recall) / (precision + recall)
-    
-    return f1
-
-def f1_str(target, prediction):
-    return {"f1_str": 100 * f1_str_base(target, prediction)}
-
-def f1_str_batch(targets, predictions):
-    return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
->>>>>>> main
-
-
->>>>>>> main

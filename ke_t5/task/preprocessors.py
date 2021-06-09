@@ -214,19 +214,7 @@ def tokenize_and_preproc_iob2(x, output_features, tags=None, iob2_tags=None, tag
     input_hf = tokenizer(inputs)
     input_ids = input_hf.input_ids
     ret[f'{input_key}'] = input_ids
-<<<<<<< HEAD
     #ret[f'{input_key}_tokens'] = [tokenizer._convert_id_to_token(x) for x in input_ids]
-=======
-<<<<<<< HEAD
-    #ret[f'{input_key}_tokens'] = [tokenizer._convert_id_to_token(x) for x in input_ids]
-=======
-<<<<<<< HEAD
-    #ret[f'{input_key}_tokens'] = [tokenizer._convert_id_to_token(x) for x in input_ids]
-=======
-    ret[f'{input_key}_tokens'] = [tokenizer._convert_id_to_token(x) for x in input_ids]
->>>>>>> main
->>>>>>> main
->>>>>>> main
 
     if tags and iob2_tags:
         outside_label = iob2_tags.index('O')
@@ -238,22 +226,6 @@ def tokenize_and_preproc_iob2(x, output_features, tags=None, iob2_tags=None, tag
             if label_txt != 'O':
                 pos_list = [input_hf.char_to_token(pos) for pos in range(begin, end)]
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-                is_none = False
-                for index in pos_list:
-                    if index is None:
-                        is_none = True
-                if is_none:
-                    print(x)
-
->>>>>>> main
->>>>>>> main
->>>>>>> main
                 # there is  None position in the case consecutive white spaces.
                 pos_list = [x for x in pos_list if x is not None]
                 token_set = set(pos_list)

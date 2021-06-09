@@ -335,22 +335,10 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
 
             # update metrics
             metric_meter.update_scores("loss", loss.cpu().numpy())
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> main
             predictions = predictions.cpu().numpy()
             gathered_dict = {k:v.cpu().numpy() for k, v in batch.items()}
             gathered_dict['predictions'] = predictions
             metric_meter.update_metrics(gathered_dict)
-<<<<<<< HEAD
-=======
-=======
-            targets = batch['labels'].cpu().numpy()
-            predictions = predictions.cpu().numpy()
-            metric_meter.update_metrics(targets, predictions)
->>>>>>> main
->>>>>>> main
 
             # reduce average scores
             average_scores = metric_meter.get_average_scores()
@@ -363,15 +351,7 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
                 if args.local_rank == 0 or not args.distributed:
                     score_log = metric_meter.get_score_str("eval", average_scores=average_scores)
 
-<<<<<<< HEAD
                     logging.info('-----Evaluation----- \nEpoch: [{0}][{1}/{2}]\t'
-=======
-<<<<<<< HEAD
-                    logging.info('-----Evaluation----- \nEpoch: [{0}][{1}/{2}]\t'
-=======
-                    logging.info('-----Evaluation----- Epoch: [{0}][{1}/{2}]\t'
->>>>>>> main
->>>>>>> main
                             'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                             'Speed {3:.3f} ({4:.3f})\t'.format(
                                 epoch, step_inbatch, len(eval_loader),
@@ -427,22 +407,10 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
 
                 # update metrics
                 metric_meter.update_scores("loss", loss.cpu().numpy())
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> main
                 predictions = predictions.cpu().numpy()
                 gathered_dict = {k:v.cpu().numpy() for k, v in batch.items()}
                 gathered_dict['predictions'] = predictions
                 metric_meter.update_metrics(gathered_dict)
-<<<<<<< HEAD
-=======
-=======
-                targets = batch['labels'].cpu().numpy()
-                predictions = predictions.cpu().numpy()
-                metric_meter.update_metrics(targets, predictions)
->>>>>>> main
->>>>>>> main
 
                 average_scores = metric_meter.get_average_scores()
                 average_scores = {k:reduce_tensor(torch.tensor(v, device='cuda'), args).cpu().numpy() for k, v in average_scores.items()}
@@ -453,15 +421,7 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
                         global_step,
                         args.task,
                         "train")
-<<<<<<< HEAD
                     logging.info('-----Training----- \nEpoch: [{0}][{1}/{2}]\t'
-=======
-<<<<<<< HEAD
-                    logging.info('-----Training----- \nEpoch: [{0}][{1}/{2}]\t'
-=======
-                    logging.info('-----Training----- Epoch: [{0}][{1}/{2}]\t'
->>>>>>> main
->>>>>>> main
                           'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                           'Speed {3:.3f} ({4:.3f})\t'.format(
                               epoch, step_inbatch, steps_per_epoch,
@@ -492,22 +452,6 @@ if __name__ == "__main__":
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_tc'
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_re'
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_nli'
-<<<<<<< HEAD
 
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'nikl_summarization_topic'
-=======
-<<<<<<< HEAD
-
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'nikl_summarization_topic'
-=======
-<<<<<<< HEAD
-
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'nikl_summarization_topic'
-=======
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
->>>>>>> main
->>>>>>> main
->>>>>>> main
