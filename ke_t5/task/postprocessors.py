@@ -36,3 +36,15 @@ def decode_for_generator(gathered_dict, decode_keys, tokenizer):
         gathered_dict[k] = [tokenizer.decode(_to_eos(sent, eos_id), skip_special_tokens=True) for sent in gathered_dict[k]]
     return gathered_dict
 
+def string_to_float(string, default=-1.):
+    try:
+        return float(string)
+    except ValueError:
+        return default
+
+def decode_and_float(gathered_dict, decode_keys, tokenizer):
+    eos_id = tokenizer.eos_token_id
+    for k in decode_keys:
+        gathered_dict[k] = [string_to_float(tokenizer.decode(_to_eos(sent, eos_id), skip_special_tokens=True)) for sent in gathered_dict[k]]
+        gathered_dict[k] = np.array(gathered_dict[k])
+    return gathered_dict

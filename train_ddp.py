@@ -331,7 +331,10 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
             logits = outputs[1]
 
             # get predictions
-            predictions = utils.get_ids_from_logits(logits.clone())
+            if task.logit_to_id:
+                predictions = utils.get_ids_from_logits(logits.clone())
+            else:
+                predictions = logits.clone()
 
             # update metrics
             metric_meter.update_scores("loss", loss.cpu().numpy())
@@ -397,7 +400,10 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
         optimizer.step()
 
         # get predictions
-        predictions = utils.get_ids_from_logits(logits.clone())
+        if task.logit_to_id:
+            predictions = utils.get_ids_from_logits(logits.clone())
+        else:
+            predictions = logits.clone()
 
         global_step = epoch*args.batch_size + step_inbatch
         if global_step % args.print_freq == 0:
@@ -455,3 +461,7 @@ if __name__ == "__main__":
 
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'nikl_summarization_topic'
+
+
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'korquad_gen'
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name ke_t5.models.models:T5EncoderForSequenceClassificationMean --task 'klue_sts'

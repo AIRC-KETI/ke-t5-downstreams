@@ -137,6 +137,7 @@ seq_pipe.TaskRegistry.add(
         'num_labels': len(KLUE_META['tc_classes']),
         'id2label': {idx:key for idx, key in enumerate(KLUE_META['tc_classes'])},
         'label2id': {key:idx for idx, key in enumerate(KLUE_META['tc_classes'])},
+        'problem_type': "single_label_classification",
         },
     num_proc=4,
 )
@@ -241,6 +242,7 @@ seq_pipe.TaskRegistry.add(
         'num_labels': len(KLUE_META['nli_classes']),
         'id2label': {idx:key for idx, key in enumerate(KLUE_META['nli_classes'])},
         'label2id': {key:idx for idx, key in enumerate(KLUE_META['nli_classes'])},
+        'problem_type': "single_label_classification",
         },
 )
 
@@ -276,6 +278,15 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_and_float,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.pearson_corrcoef_dict, metrics.spearman_corrcoef_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('spearman_corrcoef'),
     columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
@@ -313,10 +324,20 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
+    logit_to_id=False,
+    train_metric_fns=[
+        metrics.pearson_corrcoef_dict, metrics.spearman_corrcoef_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('spearman_corrcoef'),
     columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
+    additional_task_info={
+        'num_labels': 1,
+        'problem_type': "regression",
+        },
 )
+
 
 # ============ KLUE RE: Generative ============
 seq_pipe.TaskRegistry.add(
@@ -415,6 +436,7 @@ seq_pipe.TaskRegistry.add(
         'num_labels': len(KLUE_META['re_relations']),
         'id2label': {idx:key for idx, key in enumerate(KLUE_META['re_relations'])},
         'label2id': {key:idx for idx, key in enumerate(KLUE_META['re_relations'])},
+        'problem_type': "single_label_classification",
         },
 )
 
@@ -1065,16 +1087,13 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    train_metric_fns=[
-        metrics.pearson_corrcoef_dict, metrics.spearman_corrcoef_dict
-    ],
-    best_fn=seq_pipe.evaluation.GreaterIsTheBest('spearman_corrcoef'),
     columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'num_labels': len(NIKL_META['cola_classes']),
         'id2label': {idx:key for idx, key in enumerate(NIKL_META['cola_classes'])},
         'label2id': {key:idx for idx, key in enumerate(NIKL_META['cola_classes'])},
+        'problem_type': "single_label_classification",
         },
     num_proc=4,
 )
