@@ -17,8 +17,9 @@ import functools
 
 from ke_t5 import pipe as seq_pipe
 from .task_meta import NIKL_META, KLUE_META
-from . import preprocessors, metrics
+from . import preprocessors, metrics, postprocessors
 from .utils import get_vocabulary
+
 
 VOCABULARY = get_vocabulary()
 
@@ -33,6 +34,11 @@ DEFAULT_OUTPUT_FEATURES = {
     "inputs": seq_pipe.Feature(
         tokenizer=VOCABULARY, add_eos=False, required=False)
 }
+
+
+# ================================================
+# ==================== KLUE ======================
+# ================================================
 
 # ============ KLUE topic classification: Generative ============
 seq_pipe.TaskRegistry.add(
@@ -57,7 +63,7 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
@@ -65,10 +71,27 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
-    metric_fns=[
-        metrics.accuracy
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.exact_match_str_dict
     ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'tc':{
+                "early_stopping": True,
+                "max_length": 5,
+                "num_beams": 1,
+                "prefix": "klue_tc title: {}"
+            },
+        },
+    },
     num_proc=4,
 )
 
@@ -96,7 +119,7 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
@@ -104,11 +127,12 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    metric_fns=[
-        metrics.accuracy
+    train_metric_fns=[
+        metrics.accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'num_labels': len(KLUE_META['tc_classes']),
         'id2label': {idx:key for idx, key in enumerate(KLUE_META['tc_classes'])},
@@ -142,7 +166,7 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
@@ -150,7 +174,27 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.exact_match_str_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'nli':{
+                "early_stopping": True,
+                "max_length": 5,
+                "num_beams": 1,
+                "prefix": "klue_nli premise: {premise} hypothesis: {hypothesis}"
+            },
+        },
+    },
     num_proc=4,
 )
 
@@ -178,15 +222,20 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
                 "labels": "targets",
             }),
     ],
+    train_metric_fns=[
+        metrics.accuracy_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
     output_features=DEFAULT_OUTPUT_FEATURES,
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
     additional_task_info={
         'num_labels': len(KLUE_META['nli_classes']),
@@ -219,7 +268,7 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
@@ -228,6 +277,7 @@ seq_pipe.TaskRegistry.add(
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
 )
 
@@ -255,7 +305,7 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
@@ -264,6 +314,7 @@ seq_pipe.TaskRegistry.add(
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
 )
 
@@ -290,7 +341,7 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
@@ -298,7 +349,27 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.exact_match_str_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
+    additional_task_info={
+        'task_specific_params': {
+            're':{
+                "early_stopping": True,
+                "max_length": 10,
+                "num_beams": 1,
+                "prefix": "klue_re ",
+            },
+        },
+    },
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
 )
 
@@ -325,7 +396,7 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
@@ -334,7 +405,12 @@ seq_pipe.TaskRegistry.add(
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
+    train_metric_fns=[
+        metrics.accuracy_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
     additional_task_info={
         'num_labels': len(KLUE_META['re_relations']),
         'id2label': {idx:key for idx, key in enumerate(KLUE_META['re_relations'])},
@@ -364,7 +440,7 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
@@ -372,7 +448,27 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.exact_match_str_dict, metrics.f1_str_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('f1_str'),
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'mrc':{
+                "early_stopping": True,
+                "max_length": 30,
+                "num_beams": 4,
+                "prefix": "klue_mrc question: {question} context: {context}",
+            },
+        },
+    },
     num_proc=4,
 )
 
@@ -399,7 +495,7 @@ seq_pipe.TaskRegistry.add(
         seq_pipe.preprocessors.append_eos_after_trim_output_features,
         seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
-            seq_pipe.preprocessors.rename_key, 
+            seq_pipe.preprocessors.rekey, 
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
@@ -407,20 +503,704 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.exact_match_str_dict, metrics.f1_str_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('f1_str'),
     columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'mrc':{
+                "early_stopping": True,
+                "max_length": 30,
+                "num_beams": 4,
+                "prefix": "klue_mrc trivia question: {question}",
+            },
+        },
+    },
+    num_proc=4,
+)
+
+
+# ============ KLUE NER: Classifier ============
+seq_pipe.TaskRegistry.add(
+    "klue_ner",
+    seq_pipe.HFDataSource('KETI-AIR/klue', 'ner'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "guid",
+                "inputs": "text",
+                "NE": "NE",
+            }),
+        functools.partial(
+            preprocessors.tokenize_and_preproc_iob2,
+            tags=KLUE_META['ner_tags'],
+            iob2_tags=KLUE_META['ner_iob2_tags'],
+            tag_label='NE'
+        ),
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.trim_and_pad,
+            key_pad_id_map={
+                "inputs": VOCABULARY,
+                "labels": VOCABULARY,
+            }
+        ),
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+            }),
+    ],
+    output_features=DEFAULT_OUTPUT_FEATURES,
+    train_metric_fns=[
+        metrics.token_accuracy_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'num_labels': len(KLUE_META['ner_iob2_tags']),
+        'id2label': {idx:key for idx, key in enumerate(KLUE_META['ner_iob2_tags'])},
+        'label2id': {key:idx for idx, key in enumerate(KLUE_META['ner_iob2_tags'])},
+        },
     num_proc=4,
 )
 
 
 
+# ================================================
+# ==================== NIKL ======================
+# ================================================
+
+# ============ NIKL NER: Classifier ============
+seq_pipe.TaskRegistry.add(
+    "nikl_ner",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'ne.v1.0'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "id",
+                "inputs": "form",
+                "NE": "NE",
+            }),
+        functools.partial(
+            preprocessors.tokenize_and_preproc_iob2,
+            tags=NIKL_META['ne_tags'],
+            iob2_tags=NIKL_META['ne_iob2_tags'],
+            tag_label='NE'
+        ),
+        functools.partial(
+            seq_pipe.preprocessors.trim_and_pad,
+            key_pad_id_map={
+                "inputs": VOCABULARY,
+                "labels": VOCABULARY,
+            }
+        ),
+    ],
+    output_features=DEFAULT_OUTPUT_FEATURES,
+    train_metric_fns=[
+        metrics.token_accuracy_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
+    additional_task_info={
+        'num_labels': len(NIKL_META['ne_iob2_tags']),
+        'id2label': {idx:key for idx, key in enumerate(NIKL_META['ne_iob2_tags'])},
+        'label2id': {key:idx for idx, key in enumerate(NIKL_META['ne_iob2_tags'])},
+        },
+)
+
+# ============ NIKL NER: Classifier - split ============
+seq_pipe.TaskRegistry.add(
+    "nikl_ner_split",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'ne.v1.0.split'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "id",
+                "inputs": "form",
+                "NE": "NE",
+            }),
+        functools.partial(
+            preprocessors.tokenize_and_preproc_iob2,
+            tags=NIKL_META['ne_tags'],
+            iob2_tags=NIKL_META['ne_iob2_tags'],
+            tag_label='NE'
+        ),
+        functools.partial(
+            seq_pipe.preprocessors.trim_and_pad,
+            key_pad_id_map={
+                "inputs": VOCABULARY,
+                "labels": VOCABULARY,
+            }
+        ),
+    ],
+    output_features=DEFAULT_OUTPUT_FEATURES,
+    train_metric_fns=[
+        metrics.token_accuracy_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
+    additional_task_info={
+        'num_labels': len(NIKL_META['ne_iob2_tags']),
+        'id2label': {idx:key for idx, key in enumerate(NIKL_META['ne_iob2_tags'])},
+        'label2id': {key:idx for idx, key in enumerate(NIKL_META['ne_iob2_tags'])},
+        },
+)
+
+
+# ============ NIKL NER2020: Classifier ============
+seq_pipe.TaskRegistry.add(
+    "nikl_ner2020",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'ne.2020.v1.0'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "id",
+                "inputs": "form",
+                "NE": "ne",
+            }),
+        functools.partial(
+            preprocessors.tokenize_and_preproc_iob2,
+            tags=NIKL_META['ne2020_tags'],
+            iob2_tags=NIKL_META['ne2020_iob2_tabs'],
+            tag_label='NE'
+        ),
+        functools.partial(
+            seq_pipe.preprocessors.trim_and_pad,
+            key_pad_id_map={
+                "inputs": VOCABULARY,
+                "labels": VOCABULARY,
+            }
+        ),
+    ],
+    output_features=DEFAULT_OUTPUT_FEATURES,
+    train_metric_fns=[
+        metrics.token_accuracy_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
+    additional_task_info={
+        'num_labels': len(NIKL_META['ne2020_iob2_tabs']),
+        'id2label': {idx:key for idx, key in enumerate(NIKL_META['ne2020_iob2_tabs'])},
+        'label2id': {key:idx for idx, key in enumerate(NIKL_META['ne2020_iob2_tabs'])},
+        },
+)
+
+# ============ NIKL NER2020: Classifier - split ============
+seq_pipe.TaskRegistry.add(
+    "nikl_ner2020_split",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'ne.2020.v1.0.split'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "id",
+                "inputs": "form",
+                "NE": "ne",
+            }),
+        functools.partial(
+            preprocessors.tokenize_and_preproc_iob2,
+            tags=NIKL_META['ne2020_tags'],
+            iob2_tags=NIKL_META['ne2020_iob2_tabs'],
+            tag_label='NE'
+        ),
+        functools.partial(
+            seq_pipe.preprocessors.trim_and_pad,
+            key_pad_id_map={
+                "inputs": VOCABULARY,
+                "labels": VOCABULARY,
+            }
+        ),
+    ],
+    output_features=DEFAULT_OUTPUT_FEATURES,
+    train_metric_fns=[
+        metrics.token_accuracy_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
+    additional_task_info={
+        'num_labels': len(NIKL_META['ne2020_iob2_tabs']),
+        'id2label': {idx:key for idx, key in enumerate(NIKL_META['ne2020_iob2_tabs'])},
+        'label2id': {key:idx for idx, key in enumerate(NIKL_META['ne2020_iob2_tabs'])},
+        },
+)
+
+
+# ============ NIKL summarization summary: Generative ============
+seq_pipe.TaskRegistry.add(
+    "nikl_summarization_summary",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'summarization.v1.0.summary'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "document_id",
+                "inputs": "article",
+                "targets": "highlights",
+            }),
+        functools.partial(
+            preprocessors.base_preproc_for_conditional_generation,
+            prefix='summarize_summary:',
+            input_keys=['inputs'],
+            with_feature_key=False,
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.bleu_dict, metrics.rouge_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('rougeLsum'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'summarization':{
+                "early_stopping": True,
+                "length_penalty": 2.0,
+                "max_length": 200,
+                "min_length": 30,
+                "no_repeat_ngram_size": 3,
+                "num_beams": 4,
+                "prefix": "summarize_summary: "
+            },
+        },
+    },
+    num_proc=4,
+)
+
+# ============ NIKL summarization summary: Generative - split ============
+seq_pipe.TaskRegistry.add(
+    "nikl_summarization_summary_split",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'summarization.v1.0.summary.split'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "document_id",
+                "inputs": "article",
+                "targets": "highlights",
+            }),
+        functools.partial(
+            preprocessors.base_preproc_for_conditional_generation,
+            prefix='summarize_summary:',
+            input_keys=['inputs'],
+            with_feature_key=False,
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.bleu_dict, metrics.rouge_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('rougeLsum'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'summarization':{
+                "early_stopping": True,
+                "length_penalty": 2.0,
+                "max_length": 200,
+                "min_length": 30,
+                "no_repeat_ngram_size": 3,
+                "num_beams": 4,
+                "prefix": "summarize_summary: "
+            },
+        },
+    },
+    num_proc=4,
+)
+
+
+# ============ NIKL summarization topic: Generative ============
+seq_pipe.TaskRegistry.add(
+    "nikl_summarization_topic",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'summarization.v1.0.topic'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "document_id",
+                "inputs": "article",
+                "targets": "highlights",
+            }),
+        functools.partial(
+            preprocessors.base_preproc_for_conditional_generation,
+            prefix='summarize_topic:',
+            input_keys=['inputs'],
+            with_feature_key=False,
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    train_metric_fns=[
+        metrics.bleu_dict, metrics.rouge_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('rougeLsum'),
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'summarization':{
+                "early_stopping": True,
+                "length_penalty": 2.0,
+                "max_length": 200,
+                "min_length": 30,
+                "no_repeat_ngram_size": 3,
+                "num_beams": 4,
+                "prefix": "summarize_topic: "
+            },
+        },
+    },
+    num_proc=4,
+)
+
+# ============ NIKL summarization topic: Generative - split ============
+seq_pipe.TaskRegistry.add(
+    "nikl_summarization_topic_split",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'summarization.v1.0.topic.split'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "document_id",
+                "inputs": "article",
+                "targets": "highlights",
+            }),
+        functools.partial(
+            preprocessors.base_preproc_for_conditional_generation,
+            prefix='summarize_topic:',
+            input_keys=['inputs'],
+            with_feature_key=False,
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    train_metric_fns=[
+        metrics.bleu_dict, metrics.rouge_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('rougeLsum'),
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'summarization':{
+                "early_stopping": True,
+                "length_penalty": 2.0,
+                "max_length": 200,
+                "min_length": 30,
+                "no_repeat_ngram_size": 3,
+                "num_beams": 4,
+                "prefix": "summarize_topic: "
+            },
+        },
+    },
+    num_proc=4,
+)
+
+# ============ NIKL CoLA: Generative ============
+seq_pipe.TaskRegistry.add(
+    "nikl_cola_gen",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'cola.v1.0'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "idx",
+                "sentence": "sentence",
+                "label": "label",
+            }),
+        functools.partial(
+            preprocessors.base_preproc_for_classification,
+            benchmark_name='nikl_cola',
+            input_keys=['sentence'],
+            label_names=NIKL_META['cola_classes'],
+            with_feature_key=True,
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.exact_match_str_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'cola':{
+                "early_stopping": True,
+                "max_length": 5,
+                "num_beams": 1,
+                "prefix": "nikl_cola sentence: {}"
+            },
+        },
+    },
+    num_proc=4,
+)
+
+
+# ============ NIKL CoLA: Classifier ============
+seq_pipe.TaskRegistry.add(
+    "nikl_cola",
+    seq_pipe.HFDataSource('KETI-AIR/nikl', 'cola.v1.0'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "idx",
+                "sentence": "sentence",
+                "label": "label",
+            }),
+        functools.partial(
+            preprocessors.base_preproc_for_classification,
+            benchmark_name='nikl_cola',
+            input_keys=['sentence'],
+            label_names=None,
+            with_feature_key=True,
+            no_label_idx=0,
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    output_features=DEFAULT_OUTPUT_FEATURES,
+    train_metric_fns=[
+        metrics.pearson_corrcoef_dict, metrics.spearman_corrcoef_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('spearman_corrcoef'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'num_labels': len(NIKL_META['cola_classes']),
+        'id2label': {idx:key for idx, key in enumerate(NIKL_META['cola_classes'])},
+        'label2id': {key:idx for idx, key in enumerate(NIKL_META['cola_classes'])},
+        },
+    num_proc=4,
+)
+
+
+# ================================================
+# =================== KorQuAD ====================
+# ================================================
+
+
+# ============ KorQuAD v1.0: Generative ============
+seq_pipe.TaskRegistry.add(
+    "korquad_gen",
+    seq_pipe.HFDataSource('KETI-AIR/korquad', 'v1.0'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "id",
+                "context": "context",
+                "question": "question",
+                "answers": "answers",
+            }),
+        functools.partial(
+            preprocessors.preprocess_quad,
+            benchmark_name='korquad',
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.exact_match_str_dict, metrics.f1_str_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('f1_str'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'mrc':{
+                "early_stopping": True,
+                "max_length": 30,
+                "num_beams": 4,
+                "prefix": "korquad question: {question} context: {context}",
+            },
+        },
+    },
+    num_proc=4,
+)
+
+# ============ KorQuAD v1.0: Generative - Context free ============
+seq_pipe.TaskRegistry.add(
+    "korquad_gen_context_free",
+    seq_pipe.HFDataSource('KETI-AIR/korquad', 'v1.0'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "id",
+                "context": "context",
+                "question": "question",
+                "answers": "answers",
+            }),
+        functools.partial(
+            preprocessors.preprocess_quad,
+            benchmark_name='korquad',
+            include_context=False
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.exact_match_str_dict, metrics.f1_str_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('f1_str'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'mrc':{
+                "early_stopping": True,
+                "max_length": 30,
+                "num_beams": 4,
+                "prefix": "korquad trivia question: {question}",
+            },
+        },
+    },
+    num_proc=4,
+)
+
+
 if __name__ == "__main__":
-    seq_pipe.set_hf_data_dir_override("../Korean-Copora/data")
+    seq_pipe.set_hf_data_dir_override("./data")
     seq_pipe.set_hf_cache_dir_override("./cache_dir/huggingface_datasets")
 
-    task = seq_pipe.get_task('klue_tc_gen')
+    task = seq_pipe.get_task('korquad_gen_context_free')
     
     dataset = task.get_dataset(
-        sequence_length={"inputs": 512, "targets": 128},
+        sequence_length={"inputs": 512, "targets": 512},
         split="train"
     )
 
@@ -430,11 +1210,10 @@ if __name__ == "__main__":
     for _, ex in zip(range(5), iter(dataset)):
         print(ex)
 
-    import torch
+    # import torch
 
-    dataset.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=32)
+    # dataset.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
+    # dataloader = torch.utils.data.DataLoader(dataset, batch_size=32)
 
-    print(next(iter(dataloader)))
+    # print(next(iter(dataloader)))
     
-    #print(task._num_proc)

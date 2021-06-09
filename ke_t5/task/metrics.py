@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from absl import logging
+from collections import Counter
 import numpy as np
 import sacrebleu
 import scipy.stats
@@ -21,13 +22,12 @@ from rouge_score import rouge_scorer
 from rouge_score import scoring
 
 
-# adopted from 't5' github
-def accuracy(targets, predictions):
+def accuracy_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
     return {"accuracy": 100*sklearn.metrics.accuracy_score(targets, predictions)}
 
-
-# adopted from 't5' github
-def bleu(targets, predictions):
+def bleu_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     """Computes BLEU score.
     Args:
       targets: list of strings or list of list of strings if multiple references
@@ -36,6 +36,8 @@ def bleu(targets, predictions):
     Returns:
       bleu_score across all targets and predictions
     """
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
     if isinstance(targets[0], list):
         targets = [[x for x in target] for target in targets]
     else:
@@ -51,10 +53,8 @@ def bleu(targets, predictions):
                                        use_effective_order=False)
     return {"bleu": bleu_score.score}
 
-# adopted from 't5' github
 
-
-def rouge(targets, predictions, score_keys=None):
+def rouge_dict(gathered_dict, target_key='labels', prediction_key='predictions', score_keys=None):
     """Computes rouge score.
     Args:
       targets: list of strings
@@ -63,6 +63,8 @@ def rouge(targets, predictions, score_keys=None):
     Returns:
       dict with score_key: rouge score across all targets and predictions
     """
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
 
     if score_keys is None:
         score_keys = ["rouge1", "rouge2", "rougeLsum"]
@@ -81,35 +83,172 @@ def rouge(targets, predictions, score_keys=None):
         aggregator.add_scores(scorer.score(
             target=target, prediction=prediction))
     result = aggregator.aggregate()
-    for key in score_keys:
-        logging.info(
-            "%s = %.2f, 95%% confidence [%.2f, %.2f]",
-            key,
-            result[key].mid.fmeasure*100,
-            result[key].low.fmeasure*100,
-            result[key].high.fmeasure*100,
-        )
     return {key: result[key].mid.fmeasure*100 for key in score_keys}
 
-# adopted from 't5' github
+
+def exact_match_str_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
+    return {"exact_match_str": 100 * np.average(np.array([x==y for x, y in zip(targets, predictions)], dtype=np.float))}
+
+def f1_str_base(target, prediction):
+    target = [ch for ch in target]
+    prediction = [ch for ch in prediction]
+
+    same = Counter(target) & Counter(prediction)
+    num_same = sum(same.values())
+    if num_same == 0:
+        return 0
+    precision = 1.0 * num_same / len(prediction)
+    recall = 1.0 * num_same / len(target)
+    f1 = (2 * precision * recall) / (precision + recall)
+    
+    return f1
+
+def f1_str_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
+    return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
 
 
-def pearson_corrcoef(targets, predictions):
+def pearson_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     """Pearson correlation coefficient."""
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
     return {"pearson_corrcoef":
             100 * scipy.stats.pearsonr(targets, predictions)[0]}
 
-# adopted from 't5' github
 
-
-def spearman_corrcoef(targets, predictions):
+def spearman_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     """Spearman correlation coefficient."""
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
     return {"spearman_corrcoef":
             100 * scipy.stats.spearmanr(targets, predictions)[0]}
 
-# adopted from 't5' github
+
+def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='target_pretrained', prediction_key='predictions'):
+    """Spearman correlation coefficient."""
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
+    target_weights = gathered_dict[target_weights_key]
+    return {"token_accuracy": 100*sklearn.metrics.accuracy_score(targets, predictions, target_weights)}
 
 
-def exact_match(targets, predictions):
-    """Computes whether the targets match predictions exactly."""
-    return {"exact_match": 100 * float(np.array_equal(targets, predictions))}
+
+
+# # adopted from 't5' github
+# def accuracy(targets, predictions):
+#     return {"accuracy": 100*sklearn.metrics.accuracy_score(targets, predictions)}
+
+
+
+# # adopted from 't5' github
+# def bleu(targets, predictions):
+#     """Computes BLEU score.
+#     Args:
+#       targets: list of strings or list of list of strings if multiple references
+#         are present.
+#       predictions: list of strings
+#     Returns:
+#       bleu_score across all targets and predictions
+#     """
+#     if isinstance(targets[0], list):
+#         targets = [[x for x in target] for target in targets]
+#     else:
+#         # Need to wrap targets in another list for corpus_bleu.
+#         targets = [targets]
+
+#     bleu_score = sacrebleu.corpus_bleu(predictions, targets,
+#                                        smooth_method="exp",
+#                                        smooth_value=0.0,
+#                                        force=False,
+#                                        lowercase=False,
+#                                        tokenize="intl",
+#                                        use_effective_order=False)
+#     return {"bleu": bleu_score.score}
+
+# # adopted from 't5' github
+# def rouge(targets, predictions, score_keys=None):
+#     """Computes rouge score.
+#     Args:
+#       targets: list of strings
+#       predictions: list of strings
+#       score_keys: list of strings with the keys to compute.
+#     Returns:
+#       dict with score_key: rouge score across all targets and predictions
+#     """
+
+#     if score_keys is None:
+#         score_keys = ["rouge1", "rouge2", "rougeLsum"]
+#     scorer = rouge_scorer.RougeScorer(score_keys)
+#     aggregator = scoring.BootstrapAggregator()
+
+#     def _prepare_summary(summary):
+#         # Make sure the summary is not bytes-type
+#         # Add newlines between sentences so that rougeLsum is computed correctly.
+#         summary = summary.replace(" . ", " .\n")
+#         return summary
+
+#     for prediction, target in zip(predictions, targets):
+#         target = _prepare_summary(target)
+#         prediction = _prepare_summary(prediction)
+#         aggregator.add_scores(scorer.score(
+#             target=target, prediction=prediction))
+#     result = aggregator.aggregate()
+#     # for key in score_keys:
+#     #     logging.info(
+#     #         "%s = %.2f, 95%% confidence [%.2f, %.2f]",
+#     #         key,
+#     #         result[key].mid.fmeasure*100,
+#     #         result[key].low.fmeasure*100,
+#     #         result[key].high.fmeasure*100,
+#     #     )
+#     return {key: result[key].mid.fmeasure*100 for key in score_keys}
+
+
+
+# # adopted from 't5' github
+# def pearson_corrcoef(targets, predictions):
+#     """Pearson correlation coefficient."""
+#     return {"pearson_corrcoef":
+#             100 * scipy.stats.pearsonr(targets, predictions)[0]}
+
+# # adopted from 't5' github
+# def spearman_corrcoef(targets, predictions):
+#     """Spearman correlation coefficient."""
+#     return {"spearman_corrcoef":
+#             100 * scipy.stats.spearmanr(targets, predictions)[0]}
+
+# # adopted from 't5' github
+# def exact_match(targets, predictions):
+#     """Computes whether the targets match predictions exactly."""
+#     return {"exact_match": 100 * float(np.array_equal(targets, predictions))}
+
+
+# def exact_match_str(target, prediction):
+#     return {"exact_match_str": 1. if target == prediction else 0.}
+
+
+# def f1_str_base(target, prediction):
+#     target = [ch for ch in target]
+#     prediction = [ch for ch in prediction]
+
+#     same = Counter(target) & Counter(prediction)
+#     num_same = same.values()
+#     if num_same == 0:
+#         return 0
+    
+#     precision = 1.0 * num_same / len(prediction)
+#     recall = 1.0 * num_same / len(target)
+#     f1 = (2 * precision * recall) / (precision + recall)
+    
+#     return f1
+
+# def f1_str(target, prediction):
+#     return {"f1_str": 100 * f1_str_base(target, prediction)}
+
+# def f1_str_batch(targets, predictions):
+#     return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
+
+

@@ -206,6 +206,14 @@ def map_over_dataset_batched(fn):
     return wrapped_fn
 
 
+def filter_over_dataset(fn):
+
+    @functools.wraps(fn)
+    def wrapped_fn(ds, *args, num_proc=1, **kargs):
+        return ds.map(
+            lambda arg: fn(arg, *args, **kargs), num_proc=num_proc)
+
+    return wrapped_fn
 
 # if __name__ == "__main__":
 #     path = 'KETI-AIR/klue'
