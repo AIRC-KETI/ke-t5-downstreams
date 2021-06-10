@@ -76,11 +76,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.exact_match_str_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -127,11 +126,10 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    train_metric_fns=[
+    metric_fns=[
         metrics.accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'num_labels': len(KLUE_META['tc_classes']),
@@ -180,11 +178,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.exact_match_str_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -230,12 +227,11 @@ seq_pipe.TaskRegistry.add(
                 "labels": "targets",
             }),
     ],
-    train_metric_fns=[
+    metric_fns=[
         metrics.accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
     output_features=DEFAULT_OUTPUT_FEATURES,
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
     additional_task_info={
@@ -283,11 +279,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.pearson_corrcoef_dict, metrics.spearman_corrcoef_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('spearman_corrcoef'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
 )
@@ -325,11 +320,10 @@ seq_pipe.TaskRegistry.add(
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
     logit_to_id=False,
-    train_metric_fns=[
+    metric_fns=[
         metrics.pearson_corrcoef_dict, metrics.spearman_corrcoef_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('spearman_corrcoef'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
     additional_task_info={
@@ -375,7 +369,7 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.exact_match_str_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
@@ -389,7 +383,6 @@ seq_pipe.TaskRegistry.add(
             },
         },
     },
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
 )
@@ -425,10 +418,9 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
-    train_metric_fns=[
+    metric_fns=[
         metrics.accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
@@ -475,11 +467,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.exact_match_str_dict, metrics.f1_str_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('f1_str'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -530,11 +521,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.exact_match_str_dict, metrics.f1_str_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('f1_str'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -584,11 +574,10 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    train_metric_fns=[
+    metric_fns=[
         metrics.token_accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'num_labels': len(KLUE_META['ner_iob2_tags']),
@@ -631,11 +620,10 @@ seq_pipe.TaskRegistry.add(
         ),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    train_metric_fns=[
+    metric_fns=[
         metrics.token_accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
     additional_task_info={
@@ -672,11 +660,10 @@ seq_pipe.TaskRegistry.add(
         ),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    train_metric_fns=[
+    metric_fns=[
         metrics.token_accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
     additional_task_info={
@@ -714,11 +701,10 @@ seq_pipe.TaskRegistry.add(
         ),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    train_metric_fns=[
+    metric_fns=[
         metrics.token_accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
     additional_task_info={
@@ -755,11 +741,10 @@ seq_pipe.TaskRegistry.add(
         ),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    train_metric_fns=[
+    metric_fns=[
         metrics.token_accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
     additional_task_info={
@@ -805,11 +790,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.bleu_dict, metrics.rouge_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('rougeLsum'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -862,11 +846,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.bleu_dict, metrics.rouge_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('rougeLsum'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -914,7 +897,7 @@ seq_pipe.TaskRegistry.add(
                 "labels": "targets",
             }),
     ],
-    train_metric_fns=[
+    metric_fns=[
         metrics.bleu_dict, metrics.rouge_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('rougeLsum'),
@@ -924,7 +907,6 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -971,7 +953,7 @@ seq_pipe.TaskRegistry.add(
                 "labels": "targets",
             }),
     ],
-    train_metric_fns=[
+    metric_fns=[
         metrics.bleu_dict, metrics.rouge_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('rougeLsum'),
@@ -981,7 +963,6 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -1036,11 +1017,10 @@ seq_pipe.TaskRegistry.add(
             tokenizer=VOCABULARY,
             label_info=NIKL_META['cola_classes'],
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.matthews_corrcoef_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('matthews_corrcoef'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -1088,11 +1068,10 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    train_metric_fns=[
+    metric_fns=[
         metrics.matthews_corrcoef_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('matthews_corrcoef'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'num_labels': len(NIKL_META['cola_classes']),
@@ -1143,11 +1122,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.exact_match_str_dict, metrics.f1_str_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('f1_str'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -1197,11 +1175,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.exact_match_str_dict, metrics.f1_str_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('f1_str'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -1257,11 +1234,10 @@ seq_pipe.TaskRegistry.add(
             decode_keys=['predictions', 'labels'],
             tokenizer=VOCABULARY
         ),
-    train_metric_fns=[
+    metric_fns=[
         metrics.exact_match_str_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'task_specific_params': {
@@ -1307,11 +1283,10 @@ seq_pipe.TaskRegistry.add(
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
-    train_metric_fns=[
+    metric_fns=[
         metrics.accuracy_dict
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
-    columns=['input_ids', 'attention_mask', 'labels'],
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     additional_task_info={
         'num_labels': len(_KOR_3I4K_CLASSES),
