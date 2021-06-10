@@ -1217,17 +1217,125 @@ seq_pipe.TaskRegistry.add(
 )
 
 
+
+# ================================================
+# ================== Kor 3i4k ====================
+# ================================================
+_KOR_3I4K_CLASSES = ["fragment", "statement", "question", "command", "rhetorical question", "rhetorical command", "intonation-depedent utterance"]
+# ============ Kor 3i4k classification: Generative ============
+seq_pipe.TaskRegistry.add(
+    "kor_3i4k_gen",
+    seq_pipe.HFDataSource('kor_3i4k', None),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "text": "text",
+                "targets": "label",
+            }),
+        functools.partial(
+            preprocessors.base_preproc_for_classification,
+            benchmark_name='kor_3i4k',
+            input_keys=['text'],
+            label_names=_KOR_3I4K_CLASSES,
+            with_feature_key=True,
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    output_features=GENERATIVE_OUTPUT_FEATURES,
+    train_postprocess_fn=functools.partial(
+            postprocessors.decode_for_generator,
+            decode_keys=['predictions', 'labels'],
+            tokenizer=VOCABULARY
+        ),
+    train_metric_fns=[
+        metrics.exact_match_str_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('exact_match_str'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'task_specific_params': {
+            'kor_3i4k':{
+                "early_stopping": True,
+                "max_length": 5,
+                "num_beams": 1,
+                "prefix": "kor_3i4k text: {}"
+            },
+        },
+    },
+    num_proc=4,
+)
+
+# ============ Kor 3i4k: Classifier ============
+seq_pipe.TaskRegistry.add(
+    "kor_3i4k",
+    seq_pipe.HFDataSource('kor_3i4k', None),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "text": "text",
+                "targets": "label",
+            }),
+        functools.partial(
+            preprocessors.base_preproc_for_classification,
+            benchmark_name='kor_3i4k',
+            input_keys=['text'],
+            label_names=None,
+            with_feature_key=True,
+            no_label_idx=0,
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    output_features=DEFAULT_OUTPUT_FEATURES,
+    train_metric_fns=[
+        metrics.accuracy_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
+    columns=['input_ids', 'attention_mask', 'labels'],
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    additional_task_info={
+        'num_labels': len(_KOR_3I4K_CLASSES),
+        'id2label': {idx:key for idx, key in enumerate(_KOR_3I4K_CLASSES)},
+        'label2id': {key:idx for idx, key in enumerate(_KOR_3I4K_CLASSES)},
+        'problem_type': "single_label_classification",
+        },
+    num_proc=4,
+)
+
+
+
+
+
 if __name__ == "__main__":
     seq_pipe.set_hf_data_dir_override("./data")
     seq_pipe.set_hf_cache_dir_override("./cache_dir/huggingface_datasets")
 
-    task = seq_pipe.get_task('nikl_cola_gen')
+    task = seq_pipe.get_task('kor_3i4k_text')
     
     dataset = task.get_dataset(
         sequence_length={"inputs": 512, "targets": 512},
-        split="train"
+        split="test"
     )
-
     
 
     # Print the first 5 examples.

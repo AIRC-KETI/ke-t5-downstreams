@@ -61,8 +61,7 @@ def base_preproc_for_classification(
 
     joined = sep.join(strs_to_join)
     ex['inputs'] = joined
-    ex['id'] = x['id']
-
+    
     return ex
 
 
