@@ -47,7 +47,7 @@ def make_dir_if_not_exist(path):
         os.makedirs(path)
 
 
-def create_directory_info(args):
+def create_directory_info(args, create_dir=True):
 
     model_dir = os.path.join(args.output_dir, "{}_{}".format(
         args.model_name.replace('/', '_'), args.pre_trained_model.replace('/', '_')), args.task)
@@ -59,8 +59,9 @@ def create_directory_info(args):
         'logs_dir': logs_dir,
     }
 
-    for k, v in path_info.items():
-        make_dir_if_not_exist(v)
+    if create_dir:
+        for k, v in path_info.items():
+            make_dir_if_not_exist(v)
 
     path_info['best_model_path'] = os.path.join(weights_dir, "best_model.pth")
     path_info['ckpt_path'] = os.path.join(weights_dir, "checkpoint.pth")

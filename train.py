@@ -143,6 +143,9 @@ def main(_):
                 optimizer.load_state_dict(checkpoint['optimizer'])
                 logging.info("=> loaded checkpoint '{}' (epoch {})"
                              .format(FLAGS.resume, checkpoint['epoch']))
+            elif FLAGS.resume.lower()=='true':
+                FLAGS.resume = path_info['ckpt_path']
+                resume()
             else:
                 logging.info(
                     "=> no checkpoint found at '{}'".format(FLAGS.resume))
@@ -158,7 +161,7 @@ def main(_):
         test_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
         test_loader = DataLoader(test_dataset, batch_size=FLAGS.batch_size,
                                  shuffle=False, num_workers=FLAGS.workers)
-        metric_meter = validate(test_loader, model, 0, FLAGS, metric_meter)
+        metric_meter = validate(test_loader, model, 0, FLAGS, task, metric_meter)
         score_log = metric_meter.get_score_str("test")
         logging.info('\n' + '-'*10 + 'test'+'-'*10+'\n'+score_log+'-'*24)
         exit()

@@ -185,6 +185,8 @@ def main(_):
 
         # create summary_logger
         summary_logger = utils.TensorboardXLogging(path_info["logs_dir"])
+    
+    path_info = utils.create_directory_info(FLAGS, create_dir=False)
 
     # get model
     if not FLAGS.distributed or FLAGS.local_rank != 0:
@@ -219,13 +221,16 @@ def main(_):
                     best_score = checkpoint['best_score']
                 logging.info("=> loaded checkpoint '{}' (epoch {})"
                       .format(FLAGS.resume, checkpoint['epoch']))
+            elif FLAGS.resume.lower()=='true':
+                FLAGS.resume = path_info['ckpt_path']
+                resume()
             else:
                 logging.info("=> no checkpoint found at '{}'".format(FLAGS.resume))
         resume()
 
     if FLAGS.hf_path:
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
-            model.save_pretrained(FLAGS.hf_path)
+            model.module.save_pretrained(FLAGS.hf_path)
             logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
         exit()
 
@@ -240,7 +245,7 @@ def main(_):
             shuffle=False, 
             num_workers=FLAGS.workers,
             sampler=test_sampler)
-        metric_meter = validate(test_loader, model, 0, FLAGS, metric_meter)
+        metric_meter = validate(test_loader, model, 0, FLAGS, task, metric_meter)
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
             score_log = metric_meter.get_score_str("test")
             logging.info('\n' + '-'*10 + 'test'+'-'*10+'\n'+score_log+ '\n' + '-'*24)
