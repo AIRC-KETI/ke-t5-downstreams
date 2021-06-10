@@ -349,6 +349,8 @@ class Task(DatasetProviderBase):
             sorted(list(output_features.items()))
         )
 
+        self._num_examples_cache = {}
+
     @property
     def name(self) -> str:
         return self._name
@@ -433,7 +435,10 @@ class Task(DatasetProviderBase):
         return {k:v for k, v in data.items() if k in self.model_input_columns}
 
     def num_input_examples(self, split: str) -> Optional[int]:
-        return self.source.num_input_examples(split)
+        if split in self._num_examples_cache:
+            return self._num_examples_cache[split]
+        else:
+            return self.source.num_input_examples(split)
 
     def _preprocess_dataset(
             self,
@@ -467,6 +472,10 @@ class Task(DatasetProviderBase):
             self._preprocessors,
             sequence_length=sequence_length,
         )
+
+        # because of argumentation, it could be changed
+        # therefore, we update the number of examples
+        self._num_examples_cache[split] = len(ds)
 
         return ds
 

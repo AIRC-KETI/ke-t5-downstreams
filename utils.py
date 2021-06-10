@@ -50,7 +50,7 @@ def make_dir_if_not_exist(path):
 def create_directory_info(args):
 
     model_dir = os.path.join(args.output_dir, "{}_{}".format(
-        args.model_name.replace('/', '_'), args.pre_trained_model.replace('/', '_')))
+        args.model_name.replace('/', '_'), args.pre_trained_model.replace('/', '_')), args.task)
     weights_dir = os.path.join(model_dir, "weights")
     logs_dir = os.path.join(model_dir, "logs")
 
@@ -121,11 +121,11 @@ class MetricMeter(object):
             scores_dict = predict_metric_fn(gathered_dict)
             for score_name, score in scores_dict.items():
                 average_meter = self._get_averagemeter(score_name)
-                average_meter.update(score)
+                average_meter.update(score['score'], score['count'])
 
     def update_scores(self, score_name, score):
         average_meter = self._get_averagemeter(score_name)
-        average_meter.update(score)
+        average_meter.update(score['score'], score['count'])
 
     def reset(self, name=None):
         if name is not None:
@@ -138,18 +138,18 @@ class MetricMeter(object):
     def set_average_scores(self, average_scores):
         for k, v in average_scores.items():
             average_meter = self._get_averagemeter(k)
-            average_meter.update(v)
+            average_meter.update(v['score'], v['count'])
 
     def get_average_scores(self):
-        return {k: v.avg for k, v in self._average_meters.items()}
+        return {k: {'score':v.avg, 'count': v.count} for k, v in self._average_meters.items()}
 
     def get_score_str(self, tag_name='eval', average_scores=None):
         if average_scores is None:
             return ''.join([
-                "{tag_name}/{tag}: {metric_value:.3f}\t".format(tag_name=tag_name, tag=k, metric_value=v) for k, v in self.get_average_scores().items()])
+                "{tag_name}/{tag}: {metric_value:.3f}\t".format(tag_name=tag_name, tag=k, metric_value=v['score']) for k, v in self.get_average_scores().items()])
         else:
             return ''.join([
-                "{tag_name}/{tag}: {metric_value:.3f}\t".format(tag_name=tag_name, tag=k, metric_value=v) for k, v in average_scores.items()])
+                "{tag_name}/{tag}: {metric_value:.3f}\t".format(tag_name=tag_name, tag=k, metric_value=v['score']) for k, v in average_scores.items()])
 
 
 class Logger(abc.ABC):
@@ -182,7 +182,7 @@ class TensorboardXLogging(Logger):
             )
         return self._summary_writers[task_name]
 
-    def __call__(self, task_metrics: Mapping[str, Scalar], step: int,
+    def __call__(self, task_metrics: Mapping[str, Mapping[str, Scalar]], step: int,
                  task_name: str, tag_name='eval') -> str:
         summary_writer = self._get_summary_writer(task_name)
 
@@ -192,6 +192,6 @@ class TensorboardXLogging(Logger):
             tag = f"{tag_name}/{metric_name}"
 
             summary_writer.add_scalar(tag,
-                                      torch.tensor(metric_value), step)
-            metric_str += f"{tag}: {metric_value:.3f}\t"
+                                      torch.tensor(metric_value['score']), step)
+            metric_str += f"{tag}: {metric_value['score']:.3f}\t"
         return metric_str

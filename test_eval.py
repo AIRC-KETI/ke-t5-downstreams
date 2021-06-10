@@ -27,7 +27,6 @@ from absl import flags
 from absl import logging
 
 import torch
-from torch import is_tensor, tensor
 from torch.utils.data import DataLoader
 
 # distributed
@@ -82,7 +81,7 @@ flags.DEFINE_string("train_split", 'train[:90%]',
                     "name of train split")
 flags.DEFINE_string("valid_split", 'train[90%:]',
                     "name of validation split")
-flags.DEFINE_integer("batch_size", 32, "mini batch size")
+flags.DEFINE_integer("batch_size", 8, "mini batch size")
 flags.DEFINE_integer("workers", 0, "number of workers for dataloader")
 flags.DEFINE_integer("epochs", 3, "number of epochs for training")
 flags.DEFINE_integer("start_epoch", 0, "start epoch")
@@ -174,6 +173,7 @@ def main(_):
 
     # only for main processors
     summary_logger = None
+    path_info = {}
 
     if FLAGS.local_rank == 0 or not FLAGS.distributed:
         # best_function
@@ -185,6 +185,14 @@ def main(_):
 
         # create summary_logger
         summary_logger = utils.TensorboardXLogging(path_info["logs_dir"])
+    
+    # create evaluator
+    evaluator = seq_pipe.Evaluator(
+        task_name=FLAGS.task, 
+        split=FLAGS.valid_split, 
+        log_dir=path_info['logs_dir'] if 'logs_dir' in path_info else None,
+        local_rank=FLAGS.local_rank if FLAGS.distributed else 0,
+        world_size=FLAGS.world_size if FLAGS.distributed else 1)
 
     # get model
     if not FLAGS.distributed or FLAGS.local_rank != 0:
@@ -231,7 +239,7 @@ def main(_):
 
     if FLAGS.test:
         test_dataset = get_dataset(task, split=FLAGS.valid_split)
-        test_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
+        test_dataset.set_format('torch', columns=task.columns, device='cuda')
         test_sampler = torch.utils.data.distributed.DistributedSampler(
             test_dataset)
         test_loader = DataLoader(
@@ -251,8 +259,8 @@ def main(_):
     test_dataset = get_dataset(task, split=FLAGS.valid_split)
 
     # set dataset as pytorch dataset
-    train_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
-    test_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
+    train_dataset.set_format('torch', columns=task.columns, device='cuda')
+    test_dataset.set_format('torch', columns=task.columns, device='cuda')
 
     # create sampler for distributed data loading without redundant
     train_sampler = None
@@ -338,21 +346,15 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
                 predictions = logits.clone()
 
             # update metrics
-            metric_meter.update_scores("loss", {'score': loss.cpu().numpy(), 'count': 1})
+            metric_meter.update_scores("loss", loss.cpu().numpy())
             predictions = predictions.cpu().numpy()
-            gathered_dict = {k:v.cpu().numpy() if torch.is_tensor(v) else v for k, v in batch.items()}
+            gathered_dict = {k:v.cpu().numpy() for k, v in batch.items()}
             gathered_dict['predictions'] = predictions
             metric_meter.update_metrics(gathered_dict)
 
             # reduce average scores
             average_scores = metric_meter.get_average_scores()
-            average_scores = {
-                k:{
-                    'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
-                    'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
-                    } for k, v in average_scores.items()
-            }
-            average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
+            average_scores = {k:reduce_tensor(torch.tensor(v, device='cuda'), args).cpu().numpy() for k, v in average_scores.items()}
 
             if step_inbatch % args.print_freq == 0:
                 batch_time.update((time.time() - end)/args.print_freq)
@@ -371,20 +373,9 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
     
     # recude final scores
     average_scores = metric_meter.get_average_scores()
-    average_scores = {
-                k:{
-                    'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
-                    'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
-                    } for k, v in average_scores.items()
-            }
-    average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
-
-    if args.local_rank == 0 or not args.distributed:
-        metric_meter.reset()
-        metric_meter.set_average_scores(average_scores)
-        score_log = metric_meter.get_score_str("eval", average_scores=average_scores)
-        logging.info('-----Evaluation-----\n' + score_log)
-
+    average_scores = {k:reduce_tensor(torch.tensor(v, device='cuda'), args).cpu().numpy() for k, v in average_scores.items()}
+    metric_meter.reset()
+    metric_meter.set_average_scores(average_scores)
     return metric_meter
 
 
@@ -430,22 +421,15 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
                 end = time.time()
 
                 # update metrics
-                metric_meter.update_scores("loss", {'score': loss.cpu().numpy(), 'count': 1})
+                metric_meter.update_scores("loss", loss.cpu().numpy())
                 predictions = predictions.cpu().numpy()
-                gathered_dict = {k:v.cpu().numpy() if torch.is_tensor(v) else v for k, v in batch.items()}
+                gathered_dict = {k:v.cpu().numpy() for k, v in batch.items()}
                 gathered_dict['predictions'] = predictions
-                
                 metric_meter.update_metrics(gathered_dict)
 
                 average_scores = metric_meter.get_average_scores()
-                average_scores = {
-                    k:{
-                        'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
-                        'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
-                        } for k, v in average_scores.items()
-                }
-                average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
-
+                average_scores = {k:reduce_tensor(torch.tensor(v, device='cuda'), args).cpu().numpy() for k, v in average_scores.items()}
+        
                 if args.local_rank == 0 or not args.distributed:
                     score_log = summary_logger(
                         average_scores,
@@ -468,29 +452,25 @@ def reduce_tensor(tensor, args):
     rt /= args.world_size
     return rt
 
-def reduce_sum_tensor(tensor):
-    rt = tensor.clone()
-    dist.all_reduce(rt, op=dist.ReduceOp.SUM)
-    return rt
 
 if __name__ == "__main__":
     app.run(main)
 
 
-# python -m torch.distributed.launch --nproc_per_node=1 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --model_name="transformers:AutoModelForSequenceClassification" --pre_trained_model="bert-base-uncased"
-# python -m torch.distributed.launch --nproc_per_node=1 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_param="get_dataset.sequence_length={'inputs':512, 'targets':512}" --model_name="transformers:AutoModelForSequenceClassification" --pre_trained_model="bert-base-uncased"
+# python -m torch.distributed.launch --nproc_per_node=1 test_eval.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --model_name="transformers:AutoModelForSequenceClassification" --pre_trained_model="bert-base-uncased"
+# python -m torch.distributed.launch --nproc_per_node=1 test_eval.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_param="get_dataset.sequence_length={'inputs':512, 'targets':512}" --model_name="transformers:AutoModelForSequenceClassification" --pre_trained_model="bert-base-uncased"
 
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin"
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --resume output/ke_t5.models.models:T5EncoderForSequenceClassificationMean_KETI-AIR/ke-t5-small/weights/best_model.pth --test true --valid_split "test"
-
-
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_tc'
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_re'
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --task 'klue_nli'
-
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'nikl_summarization_topic'
+# python -m torch.distributed.launch --nproc_per_node=2 test_eval.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin"
+# python -m torch.distributed.launch --nproc_per_node=2 test_eval.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin" --resume output/ke_t5.models.models:T5EncoderForSequenceClassificationMean_KETI-AIR/ke-t5-small/weights/best_model.pth --test true --valid_split "test"
 
 
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'korquad_gen'
-# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name ke_t5.models.models:T5EncoderForSequenceClassificationMean --task 'klue_tc'
+# python -m torch.distributed.launch --nproc_per_node=2 test_eval.py --gin_file="train.gin" --task 'klue_tc'
+# python -m torch.distributed.launch --nproc_per_node=2 test_eval.py --gin_file="train.gin" --task 'klue_re'
+# python -m torch.distributed.launch --nproc_per_node=2 test_eval.py --gin_file="train.gin" --task 'klue_nli'
+
+# python -m torch.distributed.launch --nproc_per_node=2 test_eval.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_nli_gen'
+# python -m torch.distributed.launch --nproc_per_node=2 test_eval.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'nikl_summarization_topic'
+
+
+# python -m torch.distributed.launch --nproc_per_node=2 test_eval.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'korquad_gen'
+# python -m torch.distributed.launch --nproc_per_node=2 test_eval.py --gin_file="train.gin" --model_name ke_t5.models.models:T5EncoderForSequenceClassificationMean --task 'klue_sts'

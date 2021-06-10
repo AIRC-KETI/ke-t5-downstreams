@@ -17,3 +17,4 @@ from ke_t5.pipe.utils import *
 from ke_t5.pipe import preprocessors
 from ke_t5.pipe.dataset_providers import *
 from ke_t5.pipe import evaluation
+from ke_t5.pipe.evaluation import Evaluator
