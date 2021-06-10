@@ -48,3 +48,16 @@ def decode_and_float(gathered_dict, decode_keys, tokenizer):
         gathered_dict[k] = [string_to_float(tokenizer.decode(_to_eos(sent, eos_id), skip_special_tokens=True)) for sent in gathered_dict[k]]
         gathered_dict[k] = np.array(gathered_dict[k])
     return gathered_dict
+
+def string_to_label(string, label_info):
+    try:
+        return label_info.index(string)
+    except ValueError:
+        return -1
+
+def decode_and_string_to_label(gathered_dict, decode_keys, tokenizer, label_info):
+    eos_id = tokenizer.eos_token_id
+    for k in decode_keys:
+        gathered_dict[k] = [string_to_label(tokenizer.decode(_to_eos(sent, eos_id), skip_special_tokens=True), label_info) for sent in gathered_dict[k]]
+        gathered_dict[k] = np.array(gathered_dict[k])
+    return gathered_dict

@@ -205,6 +205,26 @@ def map_over_dataset_batched(fn):
 
     return wrapped_fn
 
+def map_over_dataset_batched_format(fn):
+    """Decorator to map decorated function over dataset.
+
+    Many preprocessors map a function over a dataset. This decorator helps reduce
+    boilerplate for this common pattern.
+
+    Args:
+      fn: map function
+
+    Returns:
+      Function which takes dataset as first argument.
+    """
+
+    @functools.wraps(fn)
+    def wrapped_fn(ds, *args, num_proc=1, **kargs):
+        return ds.map(
+            lambda arg: fn(arg, *args, **kargs), num_proc=num_proc, batched=True, batch_size=1)
+
+    return wrapped_fn
+
 
 def filter_over_dataset(fn):
 

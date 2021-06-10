@@ -25,7 +25,8 @@ from rouge_score import scoring
 def accuracy_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
-    return {"accuracy": 100*sklearn.metrics.accuracy_score(targets, predictions)}
+    return {"accuracy": {'score': 100*sklearn.metrics.accuracy_score(targets, predictions), 'count': len(targets)}}
+
 
 def bleu_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     """Computes BLEU score.
@@ -36,7 +37,8 @@ def bleu_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     Returns:
       bleu_score across all targets and predictions
     """
-    targets = gathered_dict[target_key]
+    _targets = gathered_dict[target_key]
+    targets = _targets
     predictions = gathered_dict[prediction_key]
     if isinstance(targets[0], list):
         targets = [[x for x in target] for target in targets]
@@ -51,7 +53,7 @@ def bleu_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
                                        lowercase=False,
                                        tokenize="intl",
                                        use_effective_order=False)
-    return {"bleu": bleu_score.score}
+    return {"bleu": {'score': bleu_score.score, 'count': len(_targets)}}
 
 
 def rouge_dict(gathered_dict, target_key='labels', prediction_key='predictions', score_keys=None):
@@ -83,13 +85,13 @@ def rouge_dict(gathered_dict, target_key='labels', prediction_key='predictions',
         aggregator.add_scores(scorer.score(
             target=target, prediction=prediction))
     result = aggregator.aggregate()
-    return {key: result[key].mid.fmeasure*100 for key in score_keys}
+    return {key: {'score': result[key].mid.fmeasure*100, 'count': len(targets)} for key in score_keys}
 
 
 def exact_match_str_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
-    return {"exact_match_str": 100 * np.average(np.array([x==y for x, y in zip(targets, predictions)], dtype=np.float))}
+    return {"exact_match_str": {'score': 100 * np.average(np.array([x==y for x, y in zip(targets, predictions)], dtype=np.float)), 'count': len(targets)}}
 
 def f1_str_base(target, prediction):
     target = [ch for ch in target]
@@ -108,7 +110,7 @@ def f1_str_base(target, prediction):
 def f1_str_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
-    return {"f1_str": 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float))}
+    return {"f1_str": {'score': 100 * np.average(np.array([f1_str_base(x, y) for x, y in zip(targets, predictions)], dtype=np.float)), 'count': len(targets)}}
 
 
 def pearson_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
@@ -117,7 +119,7 @@ def pearson_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='pr
     predictions = gathered_dict[prediction_key]
     predictions = np.squeeze(predictions)
     return {"pearson_corrcoef":
-            100 * scipy.stats.pearsonr(targets, predictions)[0]}
+            {'score': 100 * scipy.stats.pearsonr(targets, predictions)[0], 'count': len(targets)}}
 
 
 def spearman_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
@@ -126,17 +128,24 @@ def spearman_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='p
     predictions = gathered_dict[prediction_key]
     predictions = np.squeeze(predictions)
     return {"spearman_corrcoef":
-            100 * scipy.stats.spearmanr(targets, predictions)[0]}
+            {'score': 100 * scipy.stats.spearmanr(targets, predictions)[0], 'count': len(targets)}}
 
 
-def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='target_pretrained', prediction_key='predictions'):
+def token_accuracy_dict(gathered_dict, target_key='labels', target_weights_key='targets_attention_mask', prediction_key='predictions'):
     """Spearman correlation coefficient."""
+    targets = gathered_dict[target_key].flatten()
+    predictions = gathered_dict[prediction_key].flatten()
+    target_weights = gathered_dict[target_weights_key] if target_weights_key in gathered_dict else None
+    if target_weights is not None:
+        target_weights = target_weights.flatten()
+        return {"token_accuracy": {'score': 100*sklearn.metrics.accuracy_score(targets, predictions, sample_weight=target_weights), 'count': np.sum(target_weights)}}
+    else:
+        return {"token_accuracy": {'score': 100*sklearn.metrics.accuracy_score(targets, predictions), 'count': len(targets)}}
+
+def matthews_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
-    target_weights = gathered_dict[target_weights_key]
-    return {"token_accuracy": 100*sklearn.metrics.accuracy_score(targets, predictions, target_weights)}
-
-
+    return {"matthews_corrcoef": {'score': sklearn.metrics.matthews_corrcoef(targets, predictions), 'count': len(targets)}}
 
 
 # # adopted from 't5' github

@@ -155,7 +155,7 @@ def main(_):
 
     if FLAGS.test:
         test_dataset = get_dataset(task, split=FLAGS.valid_split)
-        test_dataset.set_format('torch', columns=task.columns, device='cuda')
+        test_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
         test_loader = DataLoader(test_dataset, batch_size=FLAGS.batch_size,
                                  shuffle=False, num_workers=FLAGS.workers)
         metric_meter = validate(test_loader, model, 0, FLAGS, metric_meter)
@@ -168,8 +168,8 @@ def main(_):
     test_dataset = get_dataset(task, split=FLAGS.valid_split)
 
     # set dataset as pytorch dataset
-    train_dataset.set_format('torch', columns=task.columns, device='cuda')
-    test_dataset.set_format('torch', columns=task.columns, device='cuda')
+    train_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
+    test_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
 
     # create data loader
     train_loader = DataLoader(train_dataset, batch_size=FLAGS.batch_size,
@@ -231,7 +231,7 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
             else:
                 predictions = logits.clone()
 
-            metric_meter.update_scores("loss", loss.cpu().numpy())
+            metric_meter.update_scores("loss", {'score': loss.cpu().numpy(), 'count': 1})
             predictions = predictions.cpu().numpy()
             gathered_dict = {k: v.cpu().numpy() for k, v in batch.items()}
             gathered_dict['predictions'] = predictions
@@ -279,7 +279,7 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
         optimizer.step()
 
         with torch.no_grad():
-            metric_meter.update_scores("loss", loss.cpu().numpy())
+            metric_meter.update_scores("loss", {'score': loss.cpu().numpy(), 'count': 1})
 
             global_step = epoch*args.batch_size + step_inbatch
             if global_step % args.print_freq == 0:
