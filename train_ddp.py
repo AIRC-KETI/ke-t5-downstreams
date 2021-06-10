@@ -236,7 +236,7 @@ def main(_):
 
     if FLAGS.test:
         test_dataset = get_dataset(task, split=FLAGS.valid_split)
-        test_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
+        test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
         test_sampler = torch.utils.data.distributed.DistributedSampler(
             test_dataset)
         test_loader = DataLoader(
@@ -256,8 +256,8 @@ def main(_):
     test_dataset = get_dataset(task, split=FLAGS.valid_split)
 
     # set dataset as pytorch dataset
-    train_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
-    test_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
+    train_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
+    test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
 
     # create sampler for distributed data loading without redundant
     train_sampler = None

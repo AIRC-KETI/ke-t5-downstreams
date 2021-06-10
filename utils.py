@@ -102,7 +102,7 @@ class MetricMeter(object):
     def __init__(self, task) -> None:
         super().__init__()
         self.train_postprocess_fn = task.train_postprocess_fn
-        self.predict_metric_fns = task.train_metric_fns
+        self.predict_metric_fns = task.metric_fns
 
         self._average_meters = {}
 
