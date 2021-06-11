@@ -189,10 +189,10 @@ python -m torch.distributed.launch --nproc_per_node=2 test_ddp.py \
 Huggingface model을 상속받아 huggingface output type으로 forward에서 return한다면 이 모델도 사용할 수 있습니다.
 예를들어 my_model.py를 다음과 같이 만들었다고 가정합니다. (모델 생성은 ke_t5/models/models.py를 참조해 주세요.)
 
-**my_model.py**
+**my_model_dir/my_model.py**
 ```python
 from transformers import T5EncoderModel
-from ke_t5.models import register_model
+from ke_t5.models.loader import register_model
 
 @register_model("abcdefg")
 class MyModel(T5EncoderModel):
@@ -207,6 +207,7 @@ class MyModel(T5EncoderModel):
 예를 들어 기본 제공되는 모델들중 `T5EncoderForSequenceClassificationMean` 클래스는 ke_t5.models.models에 위치해 있고,
 **T5EncoderForSequenceClassificationMean**으로 이름을 등록했기 때문에,
 **T5EncoderForSequenceClassificationMean** 또는 **ke_t5.models.models:T5EncoderForSequenceClassificationMean** 둘 중 아무거나 **--model_name**으로 입력할 수 있습니다.
+또한 Camel case로 명명된 Class의 경우 **ke_t5.models.models:t5_encoder_for_sequence_classification_mean**와 같이 대문자마다 `_`를 대신 이용하셔도 됩니다.
 
 custom module을 train_ddp script에서 동작하게 하려면 **--module_import**에 모듈의 경로를 입력해줍니다.
 ```bash
@@ -216,7 +217,7 @@ python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py \
     --pre_trained_model "path_to_pretrained_model_weights" \
     --model_name "abcdefg" \
     --task 'klue_tc' \
-    --module_import "my_model"
+    --module_import "my_model_dir.my_model"
 ```
 
 자신의 모델에 맞는 huggingface vocab path를 입력해주는 것을 잊지마세요.
