@@ -22,8 +22,10 @@ import os
 import time
 from typing import Any, Callable, Mapping, Optional, Sequence, Tuple, Dict
 
+import gin
 from absl import logging
 import dataclasses
+from gin.config import configurable
 import numpy as np
 from tensorboardX import SummaryWriter
 
@@ -81,35 +83,65 @@ class GreaterIsTheBest(BestScoreMeta):
 def get_method(o, name):
     return getattr(o, name)
 
-class Evaluator():
+@gin.configurable
+class EvaluationHelper(object):
     def __init__(self, 
-            task_name,
-            split,
-            log_dir=None,
-            local_rank=0,
-            world_size=1):
-        self._task_name = task_name
-        self._task = dataset_providers.get_task(self._task_name)
-        self._split = split
-        self._log_dir = log_dir
-        self._local_rank = local_rank
-        self._world_size = world_size
+            task,
+            model_fn=None,
+            model_input_keys=None,
+            model_kwargs=None,
+            distributed=True):
 
-        self._model_fn = 'forward'
-    
-    def _get_dataset(self):
-        return self._task.get_dataset(split=self._split)
+        self._task = task
 
-    def set_model_fn_for_evaluate(self, model_fn_name='forward'):
-        self._model_fn = model_fn_name
+        self._model_fn = model_fn if model_fn is not None else 'forward'
+        self._model_input_keys = model_input_keys if model_input_keys is not None else ['input_ids']
+        self._model_kwargs = model_kwargs
+
+        if self._model_kwargs is None:
+            if 'task_specific_params' in self._task.additional_task_info:
+                self._model_kwargs = list(self._task.additional_task_info['task_specific_params'].values())[0]
+                logging.info(f'model kwargs: {self._model_kwargs}')
+            else:
+                {}
+
+        self._logit_to_id = task.logit_to_id
+        self._distributed = distributed
+
+        self._model_fn_params = None
+
+    @property
+    def logit_to_id(self):
+        if self._model_fn == 'forward':
+            return self._logit_to_id
+        elif self._model_fn == 'generate':
+            return False
+        return False
+
+    def select_model_inputs(self, data):
+        return {k:v for k, v in data.items() if k in self._model_input_keys}
     
     def call_model_method(self, model, *args, **kwargs):
+        if self._distributed:
+            model = model.module
+
+        if self._model_fn_params is None:
+            model_fn = get_method(model, self._model_fn)
+            self._model_fn_params = list(inspect.signature(model_fn).parameters.keys())
+            logging.info(f'set model params {self._model_fn_params}')
+
+        # filter input keys
+        kwargs = {k:v for k, v in kwargs.items() if k in self._model_fn_params}
+
         return get_method(model, self._model_fn)(*args, **kwargs)
     
-    def evaluate(self):
-        dataset = self._get_dataset()
-        if self._world_size > 1:
-            dataset = dataset.shard(self._world_size, self._local_rank)
+    def prepare_inputs(self, data):
+        kw_inputs = self.select_model_inputs(data)
+        if self._model_kwargs is not None:
+            for k, v in self._model_kwargs.items():
+                kw_inputs[k] = v
+        return kw_inputs
+    
     
 # evaluator = seq_pipe.Evaluator(
 #         task_name=FLAGS.task, 
