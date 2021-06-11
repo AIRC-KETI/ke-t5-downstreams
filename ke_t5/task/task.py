@@ -550,20 +550,19 @@ seq_pipe.TaskRegistry.add(
             key_map={
                 "id": "guid",
                 "inputs": "text",
-                "NE": "NE",
+                "tag_info": "NE",
             }),
         functools.partial(
             preprocessors.tokenize_and_preproc_iob2,
             tags=KLUE_META['ner_tags'],
-            iob2_tags=KLUE_META['ner_iob2_tags'],
-            tag_label='NE'
+            iob2_tags=KLUE_META[ 'ner_iob2_tags'],
+            tag_label='tag_info'
         ),
-        seq_pipe.preprocessors.trim_and_pad_output_features,
         functools.partial(
             seq_pipe.preprocessors.trim_and_pad,
             key_pad_id_map={
-                "inputs": VOCABULARY,
-                "labels": VOCABULARY,
+                "inputs": VOCABULARY.pad_token_id,
+                "targets": KLUE_META[ 'ner_iob2_tags'].index('O'),
             }
         ),
         functools.partial(
@@ -571,11 +570,13 @@ seq_pipe.TaskRegistry.add(
             key_map={
                 "input_ids": "inputs",
                 "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
             }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
     metric_fns=[
-        metrics.token_accuracy_dict
+        metrics.token_accuracy_dict_variable_length, 
+        functools.partial(metrics.char_level_f1_score_klue_dict, iob2_tags=KLUE_META['ner_iob2_tags'])
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
@@ -603,25 +604,32 @@ seq_pipe.TaskRegistry.add(
             key_map={
                 "id": "id",
                 "inputs": "form",
-                "NE": "NE",
+                "tag_info": "NE",
             }),
         functools.partial(
             preprocessors.tokenize_and_preproc_iob2,
             tags=NIKL_META['ne_tags'],
             iob2_tags=NIKL_META['ne_iob2_tags'],
-            tag_label='NE'
+            tag_label='tag_info'
         ),
         functools.partial(
             seq_pipe.preprocessors.trim_and_pad,
             key_pad_id_map={
-                "inputs": VOCABULARY,
-                "labels": VOCABULARY,
+                "inputs": VOCABULARY.pad_token_id,
+                "targets": NIKL_META['ne_iob2_tags'].index('O'),
             }
         ),
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
     metric_fns=[
-        metrics.token_accuracy_dict
+        metrics.token_accuracy_dict_variable_length
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
@@ -643,25 +651,32 @@ seq_pipe.TaskRegistry.add(
             key_map={
                 "id": "id",
                 "inputs": "form",
-                "NE": "NE",
+                "tag_info": "NE",
             }),
         functools.partial(
             preprocessors.tokenize_and_preproc_iob2,
             tags=NIKL_META['ne_tags'],
             iob2_tags=NIKL_META['ne_iob2_tags'],
-            tag_label='NE'
+            tag_label='tag_info'
         ),
         functools.partial(
             seq_pipe.preprocessors.trim_and_pad,
             key_pad_id_map={
-                "inputs": VOCABULARY,
-                "labels": VOCABULARY,
+                "inputs": VOCABULARY.pad_token_id,
+                "targets": NIKL_META['ne_iob2_tags'].index('O'),
             }
         ),
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
     metric_fns=[
-        metrics.token_accuracy_dict
+        metrics.token_accuracy_dict_variable_length
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
@@ -684,33 +699,40 @@ seq_pipe.TaskRegistry.add(
             key_map={
                 "id": "id",
                 "inputs": "form",
-                "NE": "ne",
+                "tag_info": "ne",
             }),
         functools.partial(
             preprocessors.tokenize_and_preproc_iob2,
             tags=NIKL_META['ne2020_tags'],
-            iob2_tags=NIKL_META['ne2020_iob2_tabs'],
-            tag_label='NE'
+            iob2_tags=NIKL_META['ne2020_iob2_tags'],
+            tag_label='tag_info'
         ),
         functools.partial(
             seq_pipe.preprocessors.trim_and_pad,
             key_pad_id_map={
-                "inputs": VOCABULARY,
-                "labels": VOCABULARY,
+                "inputs": VOCABULARY.pad_token_id,
+                "targets": NIKL_META['ne2020_iob2_tags'].index('O'),
             }
         ),
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
     metric_fns=[
-        metrics.token_accuracy_dict
+        metrics.token_accuracy_dict_variable_length
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
     additional_task_info={
-        'num_labels': len(NIKL_META['ne2020_iob2_tabs']),
-        'id2label': {idx:key for idx, key in enumerate(NIKL_META['ne2020_iob2_tabs'])},
-        'label2id': {key:idx for idx, key in enumerate(NIKL_META['ne2020_iob2_tabs'])},
+        'num_labels': len(NIKL_META['ne2020_iob2_tags']),
+        'id2label': {idx:key for idx, key in enumerate(NIKL_META['ne2020_iob2_tags'])},
+        'label2id': {key:idx for idx, key in enumerate(NIKL_META['ne2020_iob2_tags'])},
         },
 )
 
@@ -724,33 +746,40 @@ seq_pipe.TaskRegistry.add(
             key_map={
                 "id": "id",
                 "inputs": "form",
-                "NE": "ne",
+                "tag_info": "ne",
             }),
         functools.partial(
             preprocessors.tokenize_and_preproc_iob2,
             tags=NIKL_META['ne2020_tags'],
-            iob2_tags=NIKL_META['ne2020_iob2_tabs'],
-            tag_label='NE'
+            iob2_tags=NIKL_META['ne2020_iob2_tags'],
+            tag_label='tag_info'
         ),
         functools.partial(
             seq_pipe.preprocessors.trim_and_pad,
             key_pad_id_map={
-                "inputs": VOCABULARY,
-                "labels": VOCABULARY,
+                "inputs": VOCABULARY.pad_token_id,
+                "targets": NIKL_META['ne2020_iob2_tags'].index('O'),
             }
         ),
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
     ],
     output_features=DEFAULT_OUTPUT_FEATURES,
     metric_fns=[
-        metrics.token_accuracy_dict
+        metrics.token_accuracy_dict_variable_length
     ],
     best_fn=seq_pipe.evaluation.GreaterIsTheBest('token_accuracy'),
     model_input_columns=['input_ids', 'attention_mask', 'labels'],
     num_proc=4,
     additional_task_info={
-        'num_labels': len(NIKL_META['ne2020_iob2_tabs']),
-        'id2label': {idx:key for idx, key in enumerate(NIKL_META['ne2020_iob2_tabs'])},
-        'label2id': {key:idx for idx, key in enumerate(NIKL_META['ne2020_iob2_tabs'])},
+        'num_labels': len(NIKL_META['ne2020_iob2_tags']),
+        'id2label': {idx:key for idx, key in enumerate(NIKL_META['ne2020_iob2_tags'])},
+        'label2id': {key:idx for idx, key in enumerate(NIKL_META['ne2020_iob2_tags'])},
         },
 )
 
@@ -1305,11 +1334,11 @@ if __name__ == "__main__":
     seq_pipe.set_hf_data_dir_override("./data")
     seq_pipe.set_hf_cache_dir_override("./cache_dir/huggingface_datasets")
 
-    task = seq_pipe.get_task('kor_3i4k_text')
+    task = seq_pipe.get_task('nikl_ner')
     
     dataset = task.get_dataset(
         sequence_length={"inputs": 512, "targets": 512},
-        split="test"
+        split="train"
     )
     
 

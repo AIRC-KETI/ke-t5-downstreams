@@ -39,6 +39,7 @@ from ke_t5.task.utils import get_vocabulary
 from ke_t5 import pipe as seq_pipe
 from ke_t5.models import loader, models
 
+
 import utils
 
 import register_optimizers
@@ -255,7 +256,8 @@ def main(_):
             batch_size=FLAGS.batch_size, 
             shuffle=False, 
             num_workers=FLAGS.workers,
-            sampler=test_sampler)
+            sampler=test_sampler,
+            collate_fn=utils.collate_variable_length_dict_outer)
         metric_meter = validate(test_loader, model, 0, FLAGS, task, metric_meter)
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
             score_log = metric_meter.get_score_str("test")
@@ -284,12 +286,14 @@ def main(_):
                               batch_size=FLAGS.batch_size,
                               shuffle=(train_sampler is None),
                               num_workers=FLAGS.workers,
-                              sampler=train_sampler)
+                              sampler=train_sampler,
+                              collate_fn=utils.collate_variable_length_dict_outer)
     test_loader = DataLoader(test_dataset,
                              batch_size=FLAGS.batch_size,
                              shuffle=False,
                              num_workers=FLAGS.workers,
-                             sampler=test_sampler)
+                             sampler=test_sampler,
+                             collate_fn=utils.collate_variable_length_dict_outer)
 
     # run training
     for epoch in range(FLAGS.start_epoch, FLAGS.epochs):
@@ -348,14 +352,17 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
             logits = outputs[1]
 
             # get predictions
-            if task.logit_to_id:
+            if task.logit_to_id and isinstance(logits, torch.Tensor):
                 predictions = utils.get_ids_from_logits(logits.clone())
-            else:
+            elif isinstance(logits, torch.Tensor):
                 predictions = logits.clone()
+            else:
+                predictions = logits
 
             # update metrics
             metric_meter.update_scores("loss", {'score': loss.cpu().numpy(), 'count': 1})
-            predictions = predictions.cpu().numpy()
+            if isinstance(predictions, torch.Tensor):
+                predictions = predictions.cpu().numpy()
             gathered_dict = {k:v.cpu().numpy() if torch.is_tensor(v) else v for k, v in batch.items()}
             gathered_dict['predictions'] = predictions
             metric_meter.update_metrics(gathered_dict)
@@ -421,6 +428,7 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
     for step_inbatch, batch in enumerate(train_loader):
         # select model inputs
         inputs = task.select_model_inputs(batch)
+
         # forward pass
         outputs = model(
             **inputs
@@ -436,10 +444,12 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
         optimizer.step()
 
         # get predictions
-        if task.logit_to_id:
+        if task.logit_to_id and isinstance(logits, torch.Tensor):
             predictions = utils.get_ids_from_logits(logits.clone())
-        else:
+        elif isinstance(logits, torch.Tensor):
             predictions = logits.clone()
+        else:
+            predictions = logits
 
         global_step = epoch*args.batch_size + step_inbatch
         if global_step % args.print_freq == 0:
@@ -449,7 +459,8 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
 
                 # update metrics
                 metric_meter.update_scores("loss", {'score': loss.cpu().numpy(), 'count': 1})
-                predictions = predictions.cpu().numpy()
+                if isinstance(predictions, torch.Tensor):
+                    predictions = predictions.cpu().numpy()
                 gathered_dict = {k:v.cpu().numpy() if torch.is_tensor(v) else v for k, v in batch.items()}
                 gathered_dict['predictions'] = predictions
                 

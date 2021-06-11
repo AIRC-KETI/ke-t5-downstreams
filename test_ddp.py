@@ -227,11 +227,13 @@ def validate(eval_loader, model, eval_helper, args, metric_meter):
 
 
             # get predictions
-            if eval_helper.logit_to_id:
+            if eval_helper.logit_to_id and isinstance(logits, torch.Tensor):
                 logits = outputs[0]
                 predictions = utils.get_ids_from_logits(logits.clone())
-            else:
+            elif isinstance(outputs, torch.Tensor):
                 predictions = outputs.clone()
+            else:
+                predictions = outputs[0]
 
             # update metrics
             predictions = predictions.cpu().numpy()
