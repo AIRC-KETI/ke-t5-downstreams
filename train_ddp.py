@@ -37,7 +37,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from ke_t5.task.utils import get_vocabulary
 from ke_t5 import pipe as seq_pipe
-from ke_t5.models import loader
+from ke_t5.models import loader, models
 
 import utils
 
