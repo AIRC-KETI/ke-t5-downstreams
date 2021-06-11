@@ -16,8 +16,7 @@ from __future__ import print_function, division
 import os
 from re import split
 import time
-import shutil
-import argparse
+import importlib
 
 import gin
 import gin.torch
@@ -82,6 +81,11 @@ flags.DEFINE_integer("batch_size", 16, "mini batch size")
 flags.DEFINE_integer("workers", 0, "number of workers for dataloader")
 flags.DEFINE_integer("print_freq", 100, "print frequency")
 
+flags.DEFINE_multi_string(
+    "module_import", None,
+    "Modules to import. Use this, for example, to add new `Task`s to the "
+    "global `TaskRegistry`.")
+
 flags.DEFINE_integer("gpu", 0, "gpu id to run")
 flags.DEFINE_integer(
     "world_size", 1, "world size. (num_nodes*num_dev_per_node)")
@@ -128,6 +132,11 @@ def main(_):
     # override data_dir and cache dir for huggingface datasets
     seq_pipe.set_hf_data_dir_override(FLAGS.hf_data_dir)
     seq_pipe.set_hf_cache_dir_override(FLAGS.hf_cache_dir)
+
+    # import new modules
+    if FLAGS.module_import:
+      for module in FLAGS.module_import:
+        importlib.import_module(module)
 
     # get task
     task = seq_pipe.get_task(FLAGS.task)
@@ -230,13 +239,14 @@ def validate(eval_loader, model, eval_helper, args, metric_meter):
 
             # reduce average scores
             average_scores = metric_meter.get_average_scores()
-            average_scores = {
-                k:{
-                    'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
-                    'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
-                    } for k, v in average_scores.items()
-            }
-            average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
+            if args.distributed:
+              average_scores = {
+                  k:{
+                      'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
+                      'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
+                      } for k, v in average_scores.items()
+              }
+              average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
 
             if step_inbatch % args.print_freq == 0:
                 batch_time.update((time.time() - end)/args.print_freq)
@@ -255,13 +265,14 @@ def validate(eval_loader, model, eval_helper, args, metric_meter):
     
     # recude final scores
     average_scores = metric_meter.get_average_scores()
-    average_scores = {
-                k:{
-                    'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
-                    'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
-                    } for k, v in average_scores.items()
-            }
-    average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
+    if args.distributed:
+      average_scores = {
+                  k:{
+                      'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
+                      'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
+                      } for k, v in average_scores.items()
+              }
+      average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
 
     if args.local_rank == 0 or not args.distributed:
         metric_meter.reset()
