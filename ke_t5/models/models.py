@@ -345,6 +345,9 @@ class T5EncoderForEntityRecognitionWithCRF(T5EncoderModel):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
+        if attention_mask is None:
+            attention_mask = torch.ones(input_ids, device=input_ids.device)
+
         outputs = self.encoder(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -363,10 +366,11 @@ class T5EncoderForEntityRecognitionWithCRF(T5EncoderModel):
         if labels is not None:
             mask = attention_mask.to(torch.uint8)
             loss = self.crf(emissions, labels, mask=mask)
+            loss = -1 * loss
             logits = self.crf.decode(emissions, mask)
         else:
             mask = attention_mask.to(torch.uint8)
-            logits = self.crf.decode(emissions)
+            logits = self.crf.decode(emissions, mask)
 
         if not return_dict:
             output = (logits, ) + outputs[2:]

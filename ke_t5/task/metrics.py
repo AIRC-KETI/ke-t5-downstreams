@@ -15,6 +15,7 @@
 from absl import logging
 from collections import Counter
 import numpy as np
+from numpy.lib.function_base import average
 import sacrebleu
 import scipy.stats
 import sklearn.metrics
@@ -146,6 +147,79 @@ def matthews_corrcoef_dict(gathered_dict, target_key='labels', prediction_key='p
     targets = gathered_dict[target_key]
     predictions = gathered_dict[prediction_key]
     return {"matthews_corrcoef": {'score': sklearn.metrics.matthews_corrcoef(targets, predictions), 'count': len(targets)}}
+
+
+def token_accuracy_dict_variable_length(gathered_dict, target_key='labels', prediction_key='predictions', **unused_kwargs):
+    """Spearman correlation coefficient."""
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
+
+    _cnt = 0
+    _sum = 0
+
+    for idx, target in enumerate(targets):
+        prediction = predictions[idx]
+        for t, p in zip(target, prediction):
+            if t == p:
+                _sum += 1
+            _cnt += 1
+    
+    return {"token_accuracy": {'score': 100*_sum/_cnt, 'count': _cnt}}
+
+
+def create_char_tags(prediction, char_to_token, char_tag, iob2_tags):
+    char_tag_pred = [iob2_tags.index('O')] * len(char_tag)
+    
+    for pred_token_idx, pred_label in enumerate(prediction):
+        tag_txt = iob2_tags[pred_label]
+        if tag_txt != 'O':
+            if tag_txt[0] == 'B':
+                beg_tk_id = pred_label
+                end_tk_id = iob2_tags.index('I'+tag_txt[1:])
+                is_first=True
+                for ch_idx, token_idx in enumerate(char_to_token):
+                    if token_idx == pred_token_idx:
+                        if is_first:
+                            char_tag_pred[ch_idx] = beg_tk_id
+                            is_first=False
+                        else:
+                            char_tag_pred[ch_idx] = end_tk_id
+            else:
+                for ch_idx, token_idx in enumerate(char_to_token):
+                    if token_idx == pred_token_idx:
+                        char_tag_pred[ch_idx] = pred_label
+    return char_tag_pred
+
+def char_level_f1_score_klue_dict(gathered_dict, iob2_tags, target_key='labels', prediction_key='predictions', klue_metric_key='klue_metric', **unused_kwargs):
+    """Spearman correlation coefficient."""
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
+
+    klue_metric_info = gathered_dict[klue_metric_key]
+    char_to_token = klue_metric_info['char_to_token']
+    char_tag = klue_metric_info['char_tag']
+
+    _cnt = 0
+    _sum = 0
+
+    for target, prediction, ch2tk, chlvl_tag in zip(targets, predictions, char_to_token, char_tag):
+        chlvl_tag_pred = create_char_tags(prediction, ch2tk, chlvl_tag, iob2_tags)
+
+        chlvl_tag_np = np.array(chlvl_tag)
+        chlvl_tag_pred_np = np.array(chlvl_tag_pred)
+        sample_weight = np.array(chlvl_tag_np != iob2_tags.index('O'), dtype=np.float)
+
+        sum_sample_w = np.sum(sample_weight)
+
+        if sum_sample_w > 0:
+            _sum += 100*sklearn.metrics.f1_score(chlvl_tag_np, chlvl_tag_pred_np, average='macro', sample_weight=sample_weight)
+            _cnt += int(sum_sample_w)
+    
+    return {"char_f1": {'score': _sum/_cnt, 'count': _cnt}}
+
+
+
+
 
 
 # # adopted from 't5' github
