@@ -239,6 +239,74 @@ class T5EncoderForSequenceClassificationMean(T5EncoderModel):
             attentions=outputs.attentions,
         )
 
+@register_model('T5EncoderForEntityRecognitionWithCRF')
+class T5EncoderForEntityRecognitionWithCRF(T5EncoderModel):
+    def __init__(self, config):
+        if not hasattr(config, 'problem_type'):
+            config.problem_type = None
+        super(T5EncoderForEntityRecognitionWithCRF, self).__init__(config)
+
+        self.num_labels = config.num_labels
+
+        self.dropout = nn.Dropout(config.dropout_rate)
+        self.position_wise_ff = nn.Linear(config.d_model, config.num_labels)
+        self.crf = CRF(config.num_labels, batch_first=True)
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        r"""
+        Returns:
+        Example::
+            >>> from transformers import T5Tokenizer, T5EncoderModel
+            >>> tokenizer = T5Tokenizer.from_pretrained('t5-small')
+            >>> model = T5EncoderModel.from_pretrained('t5-small')
+            >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
+            >>> outputs = model(input_ids=input_ids)
+            >>> last_hidden_states = outputs.last_hidden_state
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        outputs = self.encoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        last_hidden_state = outputs[0]
+        last_hidden_state = self.dropout(last_hidden_state)
+        emissions = self.position_wise_ff(last_hidden_state)
+
+        logits = self.classifier(pooled_output)
+
+        loss = None
+        if labels is not None:
+            mask = labels["attention_mask"].to(torch.uint8)
+            loss = self.crf(emissions, labels["input_ids"], mask=mask)
+            output = self.crf.decode(emissions, mask)
+        else:
+            mask = inputs["attention_mask"].to(torch.uint8)
+            output = self.crf.decode(emissions)
+        if not return_dict:
+            return ((loss,) + output) if loss is not None else output
+
+        return EntityRecognitionOutput(
+            loss=loss,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
 
 
 
