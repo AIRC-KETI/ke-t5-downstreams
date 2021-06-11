@@ -43,7 +43,6 @@ hf_test.py
 hf_vocab_test.py
 ner_test.py
 temp.gin
-test.py
 test_eval.py
 
 # PyInstaller
