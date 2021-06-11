@@ -236,7 +236,7 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
 
             metric_meter.update_scores("loss", {'score': loss.cpu().numpy(), 'count': 1})
             predictions = predictions.cpu().numpy()
-            gathered_dict = {k: v.cpu().numpy() for k, v in batch.items()}
+            gathered_dict = {k:v.cpu().numpy() if torch.is_tensor(v) else v for k, v in batch.items()}
             gathered_dict['predictions'] = predictions
             metric_meter.update_metrics(gathered_dict)
 
@@ -295,7 +295,7 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
                     predictions = logits.clone()
 
                 predictions = predictions.cpu().numpy()
-                gathered_dict = {k: v.cpu().numpy() for k, v in batch.items()}
+                gathered_dict = {k:v.cpu().numpy() if torch.is_tensor(v) else v for k, v in batch.items()}
                 gathered_dict['predictions'] = predictions
                 metric_meter.update_metrics(gathered_dict)
 
@@ -320,3 +320,12 @@ if __name__ == "__main__":
 
 # python train.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_param="get_dataset.sequence_length={'inputs':512, 'targets':512}"
 # python train.py --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" --gin_file="train.gin"
+
+
+# training
+# python train.py --gin_file="train.gin" --model_name ke_t5.models.models:T5EncoderForSequenceClassificationMean --task 'klue_tc' --train_split train --valid_split test --epochs 5
+
+# test
+# python -m torch.distributed.launch --nproc_per_node=2 test_ddp.py --gin_file="test.gin" --model_name ke_t5.models.models:T5EncoderForSequenceClassificationMean --task 'klue_tc' --test_split test --resume true
+
+

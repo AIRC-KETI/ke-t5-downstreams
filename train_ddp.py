@@ -499,3 +499,6 @@ if __name__ == "__main__":
 
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'korquad_gen'
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name ke_t5.models.models:T5EncoderForSequenceClassificationMean --task 'klue_tc'
+
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_tc_gen'
+
