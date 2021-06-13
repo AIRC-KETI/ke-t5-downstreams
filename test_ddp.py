@@ -69,6 +69,9 @@ flags.DEFINE_string("hf_cache_dir", './cache_dir/huggingface_datasets',
 flags.DEFINE_string("output_dir", 'output',
                     "path to output directory.")
 
+flags.DEFINE_bool("pass_only_model_io", False,
+                  "filter all the feature keys except model io features.")
+
 flags.DEFINE_string("resume", None,
                     "path to checkpoint.")
 flags.DEFINE_string("hf_path", None,
@@ -189,7 +192,10 @@ def main(_):
 
     
     test_dataset = get_dataset(task, split=FLAGS.test_split)
-    test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
+    if FLAGS.pass_only_model_io:
+      test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda')
+    else:
+      test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
     test_sampler = None
     if FLAGS.distributed:
       test_sampler = torch.utils.data.distributed.DistributedSampler(

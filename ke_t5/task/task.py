@@ -1334,7 +1334,7 @@ if __name__ == "__main__":
     seq_pipe.set_hf_data_dir_override("./data")
     seq_pipe.set_hf_cache_dir_override("./cache_dir/huggingface_datasets")
 
-    task = seq_pipe.get_task('nikl_ner')
+    task = seq_pipe.get_task('klue_mrc_gen')
     
     dataset = task.get_dataset(
         sequence_length={"inputs": 512, "targets": 512},
