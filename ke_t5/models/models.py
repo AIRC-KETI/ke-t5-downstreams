@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from transformers import AutoConfig, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, T5EncoderModel, T5PreTrainedModel
+from transformers import AutoConfig, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, T5EncoderModel, T5PreTrainedModel, T5ForConditionalGeneration
 from transformers.modeling_outputs import TokenClassifierOutput
 
 
@@ -25,6 +25,7 @@ from transformers.modeling_outputs import SequenceClassifierOutput
 from torchcrf import CRF
 
 from .loader import register_model
+
 
 
 class SimplePooler(nn.Module):

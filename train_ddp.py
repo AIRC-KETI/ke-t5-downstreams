@@ -107,7 +107,7 @@ def get_dataset(task, sequence_length=None, split=None):
     )
 
 @gin.configurable
-def get_optimizer(optimizer_cls):
+def get_optimizer(optimizer_cls=torch.optim.AdamW):
     return optimizer_cls
 
 
