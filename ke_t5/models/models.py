@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from transformers import AutoConfig, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, T5EncoderModel, T5PreTrainedModel, T5ForConditionalGeneration
-from transformers.modeling_outputs import TokenClassifierOutput
+from transformers.modeling_outputs import SequenceClassifierOutput, TokenClassifierOutput
 
 
 import torch
@@ -21,7 +21,6 @@ import torch.nn as nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 import torch.nn.functional as F
 
-from transformers.modeling_outputs import SequenceClassifierOutput
 from torchcrf import CRF
 
 from .loader import register_model
