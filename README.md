@@ -175,7 +175,7 @@ python -m torch.distributed.launch --nproc_per_node=2 test_ddp.py \
 
 현재 지원되는 T5기반 모델입니다.
 
-| Task 이름 | 형태 |
+| 모델 이름 | 형태 |
 | --- | --- |
 | `transformers:T5ForConditionalGeneration` | Generative |
 | `T5EncoderForSequenceClassificationSimple` | Sequence Classification - single_label_classification |
@@ -223,12 +223,87 @@ python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py \
 자신의 모델에 맞는 huggingface vocab path를 입력해주는 것을 잊지마세요.
 
 
+# Samples
+
+몇가지 샘플 모델을 공유합니다.
+
+| task | model | base model | URL |
+| --- | --- | --- | --- |
+| `nikl_ner` | `T5EncoderForEntityRecognitionWithCRF` | **KETI-AIR/ke-t5-base** | [Download](https://drive.google.com/file/d/1qJOxWpWgb0nJP8rgsK2PqVY9Cr_jOpXm/view?usp=sharing) |
+| `nikl_ner2020` | `T5EncoderForEntityRecognitionWithCRF` | **KETI-AIR/ke-t5-base** | [Download](https://drive.google.com/file/d/1ijN_y26QFwq26BXRYbGHSJFukkZvxOZh/view?usp=sharing) |
+
+
+Sample code (샘플 모델 중 nikl_ner 모델들을 다운 받았다고 가정)
+
+```python
+
+from transformers import T5Tokenizer
+from ke_t5.models import loader, models
+
+model_path = 'path_to_model_directory'
+model_name = 'T5EncoderForEntityRecognitionWithCRF'
+model_cls = loader.load_model(model_name)
+
+tokenizer = T5Tokenizer.from_pretrained(model_path)
+model = model_cls.from_pretrained(model_path)
+id2label = model.config.id2label
+
+# 출처 : 경상일보(http://www.ksilbo.co.kr)
+# author: 이춘봉기자 bong@ksilbo.co.kr
+# URL: http://www.ksilbo.co.kr/news/articleView.html?idxno=903455
+input_txt = "울산시설공단은 다양한 꽃·나무 감상 기회를 제공해 시민들의 \
+    코로나 블루를 해소하고 이색적인 공간을 연출하기 위해 울산대공원 울산대종 \
+    뒤편 야외공연장 상단에 해바라기 정원을 조성했다고 13일 밝혔다."
+
+inputs = tokenizer(input_txt, return_tensors="pt")
+output = model(
+        input_ids=inputs.input_ids,
+        attention_mask=inputs.attention_mask,
+    )
+
+input_ids = inputs.input_ids[0]
+predicted_classes = output.logits[0]
+inp_tks = [tokenizer.decode(x) for x in input_ids]
+lbls = [id2label[x] for x in predicted_classes]
+print(list(zip(inp_tks, lbls)))
+
+
+# --------------------------------------------------------
+## NIKL NER의 경우
+[('울산', 'B-OG'), ('시설공단', 'I-OG'), ('은', 'O'), ('다양한', 'O'), 
+('꽃', 'B-PT'), ('·', 'O'), ('나무', 'B-PT'), ('감상', 'O'), 
+('기회를', 'O'), ('제공해', 'O'), ('시민들의', 'B-CV'), ('코로나', 'O'), 
+('블루', 'O'), ('를', 'O'), ('해소하고', 'O'), ('이색적인', 'O'), 
+('공간을', 'O'), ('연출', 'O'), ('하기', 'O'), ('위해', 'O'), 
+('울산', 'B-LC'), ('대', 'I-LC'), ('공원', 'I-LC'), ('울산', 'B-LC'), 
+('대', 'I-LC'), ('종', 'I-LC'), ('뒤편', 'B-TM'), ('야외', 'O'), 
+('공연장', 'O'), ('상단', 'O'), ('에', 'O'), ('해바라기', 'B-PT'), 
+('정원을', 'O'), ('조성했다', 'O'), ('고', 'O'), ('13', 'B-DT'), 
+('일', 'I-DT'), ('밝혔다', 'O'), ('.', 'O'), ('</s>', 'O')]
+
+## NIKL NER 2020의 경우
+[('울산', 'B-OGG_POLITICS'), ('시설공단', 'I-OGG_POLITICS'), 
+('은', 'O'), ('다양한', 'O'), ('꽃', 'B-PT_PART'), ('·', 'O'), 
+('나무', 'O'), ('감상', 'O'), ('기회를', 'O'), ('제공해', 'O'), 
+('시민들의', 'O'), ('코로나', 'O'), ('블루', 'O'), ('를', 'O'), 
+('해소하고', 'O'), ('이색적인', 'O'), ('공간을', 'O'), ('연출', 'O'), 
+('하기', 'O'), ('위해', 'O'), ('울산', 'B-LC_OTHERS'), 
+('대', 'I-LC_OTHERS'), ('공원', 'I-LC_OTHERS'), 
+('울산', 'B-AF_CULTURAL_ASSET'), ('대', 'I-AF_CULTURAL_ASSET'), 
+('종', 'I-AF_CULTURAL_ASSET'), ('뒤편', 'O'), ('야외', 'O'), 
+('공연장', 'O'), ('상단', 'O'), ('에', 'O'), ('해바라기', 'B-PT_FLOWER'), 
+('정원을', 'O'), ('조성했다', 'O'), ('고', 'O'), ('13', 'B-DT_DAY'), 
+('일', 'I-DT_DAY'), ('밝혔다', 'O'), ('.', 'O'), ('</s>', 'O')]
+# --------------------------------------------------------
+```
+
+
 ## Seq Pipe
 
 TODO Seq pipe에 대하여 설명할 것.
 
 ## TODO
 
-- [x] Seq Pipe 설명 추가
-- [x] Generative model을 위한 Mixture task 추가
-- [x] Coreference Resolution 코드 추가
+- [ ] Seq Pipe 설명 추가
+- [ ] Generative model을 위한 Mixture task 추가
+- [ ] Coreference Resolution 코드 추가
