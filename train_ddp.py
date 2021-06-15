@@ -262,7 +262,7 @@ def main(_):
             shuffle=False, 
             num_workers=FLAGS.workers,
             sampler=test_sampler,
-            collate_fn=utils.collate_variable_length_dict_outer)
+            collate_fn=utils.collate_variable_length)
         metric_meter = validate(test_loader, model, 0, FLAGS, task, metric_meter)
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
             score_log = metric_meter.get_score_str("test")
@@ -296,13 +296,13 @@ def main(_):
                               shuffle=(train_sampler is None),
                               num_workers=FLAGS.workers,
                               sampler=train_sampler,
-                              collate_fn=utils.collate_variable_length_dict_outer)
+                              collate_fn=utils.collate_variable_length)
     test_loader = DataLoader(test_dataset,
                              batch_size=FLAGS.batch_size,
                              shuffle=False,
                              num_workers=FLAGS.workers,
                              sampler=test_sampler,
-                             collate_fn=utils.collate_variable_length_dict_outer)
+                             collate_fn=utils.collate_variable_length)
 
     # run training
     for epoch in range(FLAGS.start_epoch, FLAGS.epochs):

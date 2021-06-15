@@ -205,7 +205,8 @@ def main(_):
         batch_size=FLAGS.batch_size, 
         shuffle=False, 
         num_workers=FLAGS.workers,
-        sampler=test_sampler)
+        sampler=test_sampler,
+        collate_fn=utils.collate_variable_length)
     metric_meter = validate(test_loader, model, eval_helper, FLAGS, metric_meter)
     if FLAGS.local_rank == 0 or not FLAGS.distributed:
         score_log = metric_meter.get_score_str("test")
