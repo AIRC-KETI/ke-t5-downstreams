@@ -258,3 +258,119 @@ def tokenize_and_preproc_iob2(x, output_features, tags=None, iob2_tags=None, tag
                         labels[tk_idx] = iob2_tags.index('I-'+label_txt)
         ret['targets'] = labels
     return ret
+
+
+@seq_pipe.map_over_dataset
+def tokenize_re_with_tk_idx(x, output_features, input_key='inputs'):
+    ret = {}
+
+    inputs = x[input_key]
+    tokenizer = output_features[input_key].tokenizer
+    ret[f'{input_key}_pretokenized'] = inputs
+    input_hf = tokenizer(inputs)
+    input_ids = input_hf.input_ids
+
+    subject_entity = x['subject_entity']
+    object_entity = x['object_entity']
+
+    subject_tk_idx = [
+        input_hf.char_to_token(x) for x in range(
+            subject_entity['start_idx'], 
+            subject_entity['end_idx']
+            )
+        ]
+    subject_tk_idx = [x for x in subject_tk_idx if x is not None]
+    subject_tk_idx = sorted(set(subject_tk_idx))
+    subject_start = subject_tk_idx[0]
+    subject_end = subject_tk_idx[-1]
+
+    object_tk_idx = [
+        input_hf.char_to_token(x) for x in range(
+            object_entity['start_idx'], 
+            object_entity['end_idx']
+            )
+        ]
+    object_tk_idx = [x for x in object_tk_idx if x is not None]
+    object_tk_idx = sorted(set(object_tk_idx))
+    object_start = object_tk_idx[0]
+    object_end = object_tk_idx[-1]
+
+    ret['entity_token_idx'] = np.array([[subject_start, subject_end], [object_start, object_end]])
+    ret['inputs'] = input_ids
+    return ret
+
+
+@seq_pipe.map_over_dataset
+def re_preproc_for_classification_with_idx(
+        x, 
+        benchmark_name, 
+        label_names=None, 
+        no_label_idx=0, 
+        with_feature_key=True,
+        sep=' '):
+    # mark span using start index of the entity
+    def _mark_span(text, span_str, span_idx, mark):
+        pattern_tmpl = r'^((?:[\S\s]){N})(W)'
+        pattern_tmpl = pattern_tmpl.replace('N', str(span_idx))
+        pattern = pattern_tmpl.replace('W', span_str)
+        return re.sub(pattern, r'\1{0}\2{0}'.format(mark), text)
+
+    # '*' for subejct entity '#' for object entity.
+
+    text = x["sentence"]
+    text = _mark_span(text, x['subject_entity']['word'],
+                      x['subject_entity']['start_idx'], '*')
+
+    sbj_st, sbj_end, sbj_form = x['subject_entity']['start_idx'], x['subject_entity']['end_idx'], x['subject_entity']['word']
+    obj_st, obj_end, obj_form = x['object_entity']['start_idx'], x['object_entity']['end_idx'], x['object_entity']['word']
+    sbj_end += 2
+    obj_end += 2
+    if sbj_st < obj_st:
+        obj_st += 2
+        obj_end += 2
+    else:
+        sbj_st += 2
+        sbj_end += 2
+
+    # Compensate for 2 added "words" added in previous step.
+    span2_index = x['object_entity']['start_idx'] + 2 * (1 if x['subject_entity']['start_idx'] < x['object_entity']['start_idx'] else 0)
+    text = _mark_span(text, x['object_entity']['word'], span2_index, '#')
+
+    strs_to_join = []
+    if with_feature_key:
+        strs_to_join.append('{}:'.format('text'))
+    strs_to_join.append(text)
+
+    ex = {}
+
+    if label_names is not None:
+        # put the name of benchmark if the model is generative
+        strs_to_join.insert(0, benchmark_name)
+        ex['targets'] = label_names[x['label']] if x['label'] >= 0 else '<unk>'
+    else:
+        ex['targets'] = x['label'] if x['label'] >= 0 else no_label_idx
+
+    offset = len(sep.join(strs_to_join[:-1] +['']))
+    sbj_st+=offset
+    sbj_end+=offset
+    obj_st+=offset
+    obj_end+=offset
+
+    ex['subject_entity'] = {
+        "type": x['subject_entity']['type'],
+        "start_idx": sbj_st,
+        "end_idx": sbj_end,
+        "word": x['subject_entity']['word'],
+    }
+    ex['object_entity'] = {
+        "type": x['object_entity']['type'],
+        "start_idx": obj_st,
+        "end_idx": obj_end,
+        "word": x['object_entity']['word'],
+    }
+
+    joined = sep.join(strs_to_join)
+    ex['inputs'] = joined
+    ex['id'] = x['id']
+
+    return ex

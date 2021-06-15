@@ -432,6 +432,54 @@ seq_pipe.TaskRegistry.add(
         },
 )
 
+# ============ KLUE RE: Classifier with sbj. obj. tk index ============
+seq_pipe.TaskRegistry.add(
+    "klue_re_tk_idx",
+    seq_pipe.HFDataSource('KETI-AIR/klue', 're'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "guid",
+                "sentence": "sentence",
+                "subject_entity": "subject_entity",
+                "object_entity": "object_entity",
+                "label": "label",
+            }),
+        functools.partial(
+            preprocessors.re_preproc_for_classification_with_idx,
+            benchmark_name='klue_re',
+            label_names=None
+        ),
+        functools.partial(
+            preprocessors.tokenize_re_with_tk_idx,
+            output_features=DEFAULT_OUTPUT_FEATURES,
+            input_key='inputs'
+        ),
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "label",
+            }),
+    ],
+    output_features=DEFAULT_OUTPUT_FEATURES,
+    model_input_columns=['input_ids', 'attention_mask', 'labels', 'entity_token_idx'],
+    num_proc=4,
+    metric_fns=[
+        metrics.accuracy_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
+    additional_task_info={
+        'num_labels': len(KLUE_META['re_relations']),
+        'id2label': {idx:key for idx, key in enumerate(KLUE_META['re_relations'])},
+        'label2id': {key:idx for idx, key in enumerate(KLUE_META['re_relations'])},
+        'problem_type': "single_label_classification",
+        },
+)
+
 # ============ KLUE MRC: Generative ============
 seq_pipe.TaskRegistry.add(
     "klue_mrc_gen",
@@ -1334,7 +1382,7 @@ if __name__ == "__main__":
     seq_pipe.set_hf_data_dir_override("./data")
     seq_pipe.set_hf_cache_dir_override("./cache_dir/huggingface_datasets")
 
-    task = seq_pipe.get_task('klue_mrc_gen')
+    task = seq_pipe.get_task('klue_re_tk_idx')
     
     dataset = task.get_dataset(
         sequence_length={"inputs": 512, "targets": 512},
