@@ -241,4 +241,84 @@ class T5EncoderForSequenceClassificationMean(T5EncoderModel):
 
 
 
+@register_model('T5EncoderForSequenceClassificationRE')
+class T5EncoderForSequenceClassificationRE(T5EncoderModel):
+    def __init__(self, config):
+        if not hasattr(config, 'problem_type'):
+            config.problem_type = None
+        super(T5EncoderForSequenceClassificationRE, self).__init__(config)
+        self.num_labels = config.num_labels        
+        self.model_dim = config.d_model
+        
+        self.fc_layer = nn.Sequential(nn.Linear(self.model_dim, self.model_dim))
+        self.classifier = nn.Sequential(nn.Linear(self.model_dim * 3 ,self.num_labels)
+                                       )
 
+    def forward(self,
+        input_ids=None,
+        attention_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+
+        outputs = self.encoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        last_hidden_state = outputs[0]
+        pooled_out = torch.mean(last_hidden_state, 1)
+
+        sub_output = []
+        obj_output = []
+        for i in range(len(pooled_out)):
+            sub_hidden = last_hidden_state[i,entities_idx[i,0]:entities_idx[i,1],:]
+            sub_hidden_mean = torch.mean(sub_hidden, 0)
+            sub_output.append(sub_hidden_mean.unsqueeze(0))
+            
+            obj_hidden = last_hidden_state[i,entities_idx[i,2]:entities_idx[i,3],:]
+            obj_hidden_mean = torch.mean(sub_hidden, 0)
+            obj_output.append(obj_hidden_mean.unsqueeze(0))
+            
+        sub_hidden_mean_cat = self.fc_layer(torch.cat((sub_output)))
+        obj_hidden_mean_cat = self.fc_layer(torch.cat((obj_output)))
+
+        entities_concat = torch.cat([pooled_out, sub_hidden_mean_cat, obj_hidden_mean_cat], dim=-1)
+        
+        logits = self.classifier(entities_concat)
+
+        loss = None
+        if labels is not None:
+            if self.config.problem_type is None:
+                if self.num_labels == 1:
+                    self.config.problem_type = "regression"
+                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                    self.config.problem_type = "single_label_classification"
+                else:
+                    self.config.problem_type = "multi_label_classification"
+
+            if self.config.problem_type == "regression":
+                loss_fct = MSELoss()
+                loss = loss_fct(logits.view(-1, self.num_labels), labels)
+            elif self.config.problem_type == "single_label_classification":
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            elif self.config.problem_type == "multi_label_classification":
+                loss_fct = BCEWithLogitsLoss()
+                loss = loss_fct(logits, labels)
+        
+        return SequenceClassifierOutput(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
