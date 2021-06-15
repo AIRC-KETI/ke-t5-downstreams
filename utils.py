@@ -288,6 +288,15 @@ def _collate_variable_length_dict(batch):
     raise TypeError(collate_variable_length_err_msg_format.format(elem_type))
 
 
+def collate_variable_length(batch):
+    elem = batch[0]
+
+    if isinstance(elem, collections.abc.Mapping):
+        return {key: _collate_variable_length([d[key] for d in batch]) for key in elem}
+    else:
+        raise RuntimeError('each element must be the Dictionary types')
+
+
 def _collate_variable_length(batch):
     r"""Puts each data field into a tensor with outer dimension batch size"""
 
@@ -323,8 +332,8 @@ def _collate_variable_length(batch):
     elif isinstance(elem, tuple) and hasattr(elem, '_fields'):  # namedtuple
         return elem_type(*(_collate_variable_length(samples) for samples in zip(*batch)))
     elif isinstance(elem, collections.abc.Sequence):
-        # allow variable length
+        # check to make sure that the elements in batch have consistent size
         it = iter(batch)
-        return [elem for elem in it]
+        return [_collate_variable_length(elem) for elem in it]
 
     raise TypeError(collate_variable_length_err_msg_format.format(elem_type))
