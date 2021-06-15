@@ -22,6 +22,7 @@ from tensorboardX import SummaryWriter
 
 import torch
 
+
 # adopted from 'seqio' github
 
 
@@ -47,7 +48,7 @@ def make_dir_if_not_exist(path):
         os.makedirs(path)
 
 
-def create_directory_info(args):
+def create_directory_info(args, create_dir=True):
 
     model_dir = os.path.join(args.output_dir, "{}_{}".format(
         args.model_name.replace('/', '_'), args.pre_trained_model.replace('/', '_')), args.task)
@@ -59,8 +60,9 @@ def create_directory_info(args):
         'logs_dir': logs_dir,
     }
 
-    for k, v in path_info.items():
-        make_dir_if_not_exist(v)
+    if create_dir:
+        for k, v in path_info.items():
+            make_dir_if_not_exist(v)
 
     path_info['best_model_path'] = os.path.join(weights_dir, "best_model.pth")
     path_info['ckpt_path'] = os.path.join(weights_dir, "checkpoint.pth")
@@ -101,7 +103,7 @@ class MetricMeter(object):
     def __init__(self, task) -> None:
         super().__init__()
         self.train_postprocess_fn = task.train_postprocess_fn
-        self.predict_metric_fns = task.train_metric_fns
+        self.predict_metric_fns = task.metric_fns
 
         self._average_meters = {}
 
@@ -195,3 +197,134 @@ class TensorboardXLogging(Logger):
                                       torch.tensor(metric_value['score']), step)
             metric_str += f"{tag}: {metric_value['score']:.3f}\t"
         return metric_str
+
+
+import re
+import collections
+from torch._six import string_classes
+
+np_str_obj_array_pattern = re.compile(r'[SaUO]')
+
+
+def default_convert(data):
+    r"""Converts each NumPy array data field into a tensor"""
+    elem_type = type(data)
+    if isinstance(data, torch.Tensor):
+        return data
+    elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
+            and elem_type.__name__ != 'string_':
+        # array of string classes and object
+        if elem_type.__name__ == 'ndarray' \
+                and np_str_obj_array_pattern.search(data.dtype.str) is not None:
+            return data
+        return torch.as_tensor(data)
+    elif isinstance(data, collections.abc.Mapping):
+        return {key: default_convert(data[key]) for key in data}
+    elif isinstance(data, tuple) and hasattr(data, '_fields'):  # namedtuple
+        return elem_type(*(default_convert(d) for d in data))
+    elif isinstance(data, collections.abc.Sequence) and not isinstance(data, string_classes):
+        return [default_convert(d) for d in data]
+    else:
+        return data
+
+
+collate_variable_length_err_msg_format = (
+    "collate_variable_length: batch must contain tensors, numpy arrays, numbers, "
+    "dicts or lists; found {}")
+
+
+def collate_variable_length_dict_outer(batch):
+    elem = batch[0]
+
+    if isinstance(elem, collections.abc.Mapping):
+        return {key: _collate_variable_length_dict([d[key] for d in batch]) for key in elem}
+    else:
+        raise RuntimeError('each element must be the Dictionary types')
+
+# claate variable length for dictionary
+def _collate_variable_length_dict(batch):
+    r"""Puts each data field into a tensor with outer dimension batch size"""
+
+    elem = batch[0]
+    elem_type = type(elem)
+    if isinstance(elem, torch.Tensor):
+        out = None
+        if torch.utils.data.get_worker_info() is not None:
+            # If we're in a background process, concatenate directly into a
+            # shared memory tensor to avoid an extra copy
+            numel = sum([x.numel() for x in batch])
+            storage = elem.storage()._new_shared(numel)
+            out = elem.new(storage)
+        return torch.stack(batch, 0, out=out)
+    elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
+            and elem_type.__name__ != 'string_':
+        if elem_type.__name__ == 'ndarray' or elem_type.__name__ == 'memmap':
+            # array of string classes and object
+            if np_str_obj_array_pattern.search(elem.dtype.str) is not None:
+                raise TypeError(collate_variable_length_err_msg_format.format(elem.dtype))
+
+            return _collate_variable_length_dict([torch.as_tensor(b) for b in batch])
+        elif elem.shape == ():  # scalars
+            return torch.as_tensor(batch)
+    elif isinstance(elem, float):
+        return torch.tensor(batch, dtype=torch.float64)
+    elif isinstance(elem, int):
+        return torch.tensor(batch)
+    elif isinstance(elem, string_classes):
+        return batch
+    elif isinstance(elem, collections.abc.Mapping):
+        return {key: [d[key] for d in batch] for key in elem}
+    elif isinstance(elem, tuple) and hasattr(elem, '_fields'):  # namedtuple
+        return elem_type(*(_collate_variable_length_dict(samples) for samples in zip(*batch)))
+    elif isinstance(elem, collections.abc.Sequence):
+        # check to make sure that the elements in batch have consistent size
+        it = iter(batch)
+        elem_size = len(next(it))
+        if not all(len(elem) == elem_size for elem in it):
+            raise RuntimeError('each element in list of batch should be of equal size')
+        transposed = zip(*batch)
+        return [_collate_variable_length_dict(samples) for samples in transposed]
+
+    raise TypeError(collate_variable_length_err_msg_format.format(elem_type))
+
+
+def _collate_variable_length(batch):
+    r"""Puts each data field into a tensor with outer dimension batch size"""
+
+    elem = batch[0]
+    elem_type = type(elem)
+    if isinstance(elem, torch.Tensor):
+        out = None
+        if torch.utils.data.get_worker_info() is not None:
+            # If we're in a background process, concatenate directly into a
+            # shared memory tensor to avoid an extra copy
+            numel = sum([x.numel() for x in batch])
+            storage = elem.storage()._new_shared(numel)
+            out = elem.new(storage)
+        return torch.stack(batch, 0, out=out)
+    elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
+            and elem_type.__name__ != 'string_':
+        if elem_type.__name__ == 'ndarray' or elem_type.__name__ == 'memmap':
+            # array of string classes and object
+            if np_str_obj_array_pattern.search(elem.dtype.str) is not None:
+                raise TypeError(collate_variable_length_err_msg_format.format(elem.dtype))
+
+            return _collate_variable_length([torch.as_tensor(b) for b in batch])
+        elif elem.shape == ():  # scalars
+            return torch.as_tensor(batch)
+    elif isinstance(elem, float):
+        return torch.tensor(batch, dtype=torch.float64)
+    elif isinstance(elem, int):
+        return torch.tensor(batch)
+    elif isinstance(elem, string_classes):
+        return batch
+    elif isinstance(elem, collections.abc.Mapping):
+        return {key: [d[key] for d in batch] for key in elem}
+    elif isinstance(elem, tuple) and hasattr(elem, '_fields'):  # namedtuple
+        return elem_type(*(_collate_variable_length(samples) for samples in zip(*batch)))
+    elif isinstance(elem, collections.abc.Sequence):
+        # allow variable length
+        it = iter(batch)
+        return [elem for elem in it]
+
+    raise TypeError(collate_variable_length_err_msg_format.format(elem_type))

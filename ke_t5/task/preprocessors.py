@@ -13,6 +13,9 @@
 # limitations under the License.
 
 import re
+import copy
+
+
 import numpy as np
 
 from ke_t5 import pipe as seq_pipe
@@ -61,7 +64,6 @@ def base_preproc_for_classification(
 
     joined = sep.join(strs_to_join)
     ex['inputs'] = joined
-    ex['id'] = x['id']
 
     return ex
 
@@ -204,7 +206,7 @@ def preprocess_quad(x, benchmark_name, include_context=True, impossible_answer_t
 
 
 @seq_pipe.map_over_dataset
-def tokenize_and_preproc_iob2(x, output_features, tags=None, iob2_tags=None, tag_label='NE', input_key='inputs'):
+def tokenize_and_preproc_iob2(x, output_features, tags=None, iob2_tags=None, tag_label='NE', input_key='inputs', info4klue=True):
 
     ret = {}
 
@@ -213,7 +215,13 @@ def tokenize_and_preproc_iob2(x, output_features, tags=None, iob2_tags=None, tag
     ret[f'{input_key}_pretokenized'] = inputs
     input_hf = tokenizer(inputs)
     input_ids = input_hf.input_ids
+
+    if info4klue:
+        ret['klue_metric'] = {}
+        ret['klue_metric']['char_to_token'] = [input_hf.char_to_token(pos) for pos in range(len(inputs))]
+    
     ret[f'{input_key}'] = input_ids
+    #ret['char_to_token'] = {k:v for k, v in enumerate(char_to_token)}
     #ret[f'{input_key}_tokens'] = [tokenizer._convert_id_to_token(x) for x in input_ids]
 
     if tags and iob2_tags:
@@ -221,10 +229,23 @@ def tokenize_and_preproc_iob2(x, output_features, tags=None, iob2_tags=None, tag
         tag_labels = x[tag_label]
         labels = np.ones_like(input_ids, dtype=np.int32) * outside_label
 
+        if info4klue:
+            ret['klue_metric']['char_tag'] = np.ones_like(ret['klue_metric']['char_to_token'], dtype=np.int32) * outside_label
+
         for begin, end, label in zip(tag_labels['begin'], tag_labels['end'], tag_labels['label']):
+
             label_txt = tags[label]
             if label_txt != 'O':
+                
+                if info4klue:
+                    for idx, pos_idx in enumerate(list(range(begin, end))):
+                        if idx == 0:
+                            ret['klue_metric']['char_tag'][pos_idx] = iob2_tags.index('B-'+label_txt)
+                        else:
+                            ret['klue_metric']['char_tag'][pos_idx] = iob2_tags.index('I-'+label_txt)
+
                 pos_list = [input_hf.char_to_token(pos) for pos in range(begin, end)]
+                #pos_list = copy.deepcopy(char_to_token[begin:end])
 
                 # there is  None position in the case consecutive white spaces.
                 pos_list = [x for x in pos_list if x is not None]
@@ -235,5 +256,5 @@ def tokenize_and_preproc_iob2(x, output_features, tags=None, iob2_tags=None, tag
                         labels[tk_idx] = iob2_tags.index('B-'+label_txt)
                     else:
                         labels[tk_idx] = iob2_tags.index('I-'+label_txt)
-        ret['labels'] = labels
+        ret['targets'] = labels
     return ret

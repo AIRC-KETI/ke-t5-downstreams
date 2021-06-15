@@ -58,6 +58,10 @@ def load_model(model_path: str):
         module_path = path_list[0].split('/')
         module_name = '.'.join(module_path)
         class_name = _camel_case(path_list[1])
+    else:
+        raise ValueError('unsupported model path: {}. '
+        'you have to provide full path to model or '
+        'register the model using @register_model decorator'.format(model_path))
     
     my_module = importlib.import_module(module_name)
     model_class = getattr(my_module, class_name)

@@ -266,7 +266,6 @@ class Task(DatasetProviderBase):
             preprocessors: Optional[Sequence[Callable[..., Dataset]]] = None,
             postprocess_fn: Optional[Callable[..., Any]] = None,
             metric_fns: Optional[Sequence[MetricFnCallable]] = None,
-            train_metric_fns: Optional[Sequence[MetricFnCallable]] = None,
             train_postprocess_fn: Optional[Callable[..., Any]] = None,
             additional_task_info: Optional[Dict] = None,
             columns: Optional[str] = None,
@@ -300,29 +299,12 @@ class Task(DatasetProviderBase):
                 "Task name '%s' contains invalid characters. Must match regex: %s" % (
                     name, _VALID_TASK_NAME_REGEX.pattern))
 
-        metric_fns = metric_fns or []
-        self._predict_metric_fns = []
-        self._score_metric_fns = []
-        for metric_fn in metric_fns:
-            pos_args = tuple(
-                key for key, param in inspect.signature(metric_fn).parameters.items()
-                if param.default == inspect.Parameter.empty
-            )
-            if pos_args == ("targets", "scores"):
-                self._score_metric_fns.append(metric_fn)
-            elif pos_args == ("targets", "predictions"):
-                self._predict_metric_fns.append(metric_fn)
-            else:
-                raise ValueError(
-                    "Metric functions must have positional arguments matching either "
-                    "('targets', 'predictions') or ('targets', 'scores'). "
-                    f"Got: {pos_args}")
         
-        train_metric_fns = train_metric_fns or []
-        self._train_metric_fns = []
+        metric_fns = metric_fns or []
+        self._metric_fns = []
 
-        for train_metric_fn in train_metric_fns:
-            self._train_metric_fns.append(train_metric_fn)
+        for metric_fn in metric_fns:
+            self._metric_fns.append(metric_fn)
 
         self._name = name
         self._source = source
@@ -337,7 +319,6 @@ class Task(DatasetProviderBase):
         self._columns = columns
         self._model_input_columns = model_input_columns
 
-        self._metric_fns = tuple(metric_fns)
         self._postprocess_fn = postprocess_fn
 
         self._train_postprocess_fn = train_postprocess_fn
@@ -358,22 +339,7 @@ class Task(DatasetProviderBase):
     @property
     def metric_fns(self) -> Sequence[MetricFnCallable]:
         """List of all metric functions."""
-        return self._predict_metric_fns + self._score_metric_fns
-
-    @property
-    def score_metric_fns(self) -> Sequence[MetricFnCallable]:
-        """List of metric functions that use log likelihood scores."""
-        return self._score_metric_fns
-
-    @property
-    def predict_metric_fns(self) -> Sequence[MetricFnCallable]:
-        """List of metric functions that use model predictions."""
-        return self._predict_metric_fns
-    
-    @property
-    def train_metric_fns(self) -> Sequence[MetricFnCallable]:
-        """List of metric functions that use model predictions."""
-        return self._train_metric_fns
+        return self._metric_fns
 
     @property
     def output_features(self) -> Mapping[str, Feature]:

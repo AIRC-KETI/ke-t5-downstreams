@@ -14,10 +14,9 @@
 
 from __future__ import print_function, division
 import os
-from re import split
 import time
-import shutil
-import argparse
+import importlib
+
 
 import gin
 import gin.torch
@@ -27,7 +26,6 @@ from absl import flags
 from absl import logging
 
 import torch
-from torch import is_tensor, tensor
 from torch.utils.data import DataLoader
 
 # distributed
@@ -37,11 +35,10 @@ import torch.utils.data.distributed
 import torch.nn.parallel
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from tensorboardX import SummaryWriter
-
 from ke_t5.task.utils import get_vocabulary
 from ke_t5 import pipe as seq_pipe
-from ke_t5.models import loader
+from ke_t5.models import loader, models
+
 
 import utils
 
@@ -72,6 +69,8 @@ flags.DEFINE_string("output_dir", 'output',
 
 flags.DEFINE_bool("test", False,
                   "is test mode?.")
+flags.DEFINE_bool("pass_only_model_io", False,
+                  "filter all the feature keys except model io features.")
 
 flags.DEFINE_string("resume", None,
                     "path to checkpoint.")
@@ -87,6 +86,11 @@ flags.DEFINE_integer("workers", 0, "number of workers for dataloader")
 flags.DEFINE_integer("epochs", 3, "number of epochs for training")
 flags.DEFINE_integer("start_epoch", 0, "start epoch")
 flags.DEFINE_integer("print_freq", 100, "print frequency")
+
+flags.DEFINE_multi_string(
+    "module_import", None,
+    "Modules to import. Use this, for example, to add new `Task`s to the "
+    "global `TaskRegistry`.")
 
 flags.DEFINE_integer("gpu", 0, "gpu id to run")
 flags.DEFINE_integer(
@@ -105,7 +109,7 @@ def get_dataset(task, sequence_length=None, split=None):
     )
 
 @gin.configurable
-def get_optimizer(optimizer_cls):
+def get_optimizer(optimizer_cls=torch.optim.AdamW):
     return optimizer_cls
 
 
@@ -129,6 +133,11 @@ def main(_):
         # override data_dir and cache dir for huggingface datasets
         seq_pipe.set_hf_data_dir_override(FLAGS.hf_data_dir)
         seq_pipe.set_hf_cache_dir_override(FLAGS.hf_cache_dir)
+
+        # import new modules
+        if FLAGS.module_import:
+            for module in FLAGS.module_import:
+                importlib.import_module(module)
 
         # get task
         task = seq_pipe.get_task(FLAGS.task)
@@ -166,6 +175,11 @@ def main(_):
         seq_pipe.set_hf_data_dir_override(FLAGS.hf_data_dir)
         seq_pipe.set_hf_cache_dir_override(FLAGS.hf_cache_dir)
 
+        # import new modules
+        if FLAGS.module_import:
+            for module in FLAGS.module_import:
+                importlib.import_module(module)
+
         # get task
         task = seq_pipe.get_task(FLAGS.task)
 
@@ -185,6 +199,8 @@ def main(_):
 
         # create summary_logger
         summary_logger = utils.TensorboardXLogging(path_info["logs_dir"])
+    
+    path_info = utils.create_directory_info(FLAGS, create_dir=False)
 
     # get model
     if not FLAGS.distributed or FLAGS.local_rank != 0:
@@ -219,19 +235,25 @@ def main(_):
                     best_score = checkpoint['best_score']
                 logging.info("=> loaded checkpoint '{}' (epoch {})"
                       .format(FLAGS.resume, checkpoint['epoch']))
+            elif FLAGS.resume.lower()=='true':
+                FLAGS.resume = path_info['ckpt_path']
+                resume()
             else:
                 logging.info("=> no checkpoint found at '{}'".format(FLAGS.resume))
         resume()
 
     if FLAGS.hf_path:
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
-            model.save_pretrained(FLAGS.hf_path)
+            model.module.save_pretrained(FLAGS.hf_path)
             logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
         exit()
 
     if FLAGS.test:
         test_dataset = get_dataset(task, split=FLAGS.valid_split)
-        test_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
+        if FLAGS.pass_only_model_io:
+            test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda')
+        else:
+            test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
         test_sampler = torch.utils.data.distributed.DistributedSampler(
             test_dataset)
         test_loader = DataLoader(
@@ -239,8 +261,9 @@ def main(_):
             batch_size=FLAGS.batch_size, 
             shuffle=False, 
             num_workers=FLAGS.workers,
-            sampler=test_sampler)
-        metric_meter = validate(test_loader, model, 0, FLAGS, metric_meter)
+            sampler=test_sampler,
+            collate_fn=utils.collate_variable_length_dict_outer)
+        metric_meter = validate(test_loader, model, 0, FLAGS, task, metric_meter)
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
             score_log = metric_meter.get_score_str("test")
             logging.info('\n' + '-'*10 + 'test'+'-'*10+'\n'+score_log+ '\n' + '-'*24)
@@ -251,8 +274,12 @@ def main(_):
     test_dataset = get_dataset(task, split=FLAGS.valid_split)
 
     # set dataset as pytorch dataset
-    train_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
-    test_dataset.set_format('torch', columns=task.columns, device='cuda', output_all_columns=True)
+    if FLAGS.pass_only_model_io:
+        train_dataset.set_format('torch', columns=task.model_input_columns, device='cuda')
+        test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda')
+    else:
+        train_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
+        test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
 
     # create sampler for distributed data loading without redundant
     train_sampler = None
@@ -268,12 +295,14 @@ def main(_):
                               batch_size=FLAGS.batch_size,
                               shuffle=(train_sampler is None),
                               num_workers=FLAGS.workers,
-                              sampler=train_sampler)
+                              sampler=train_sampler,
+                              collate_fn=utils.collate_variable_length_dict_outer)
     test_loader = DataLoader(test_dataset,
                              batch_size=FLAGS.batch_size,
                              shuffle=False,
                              num_workers=FLAGS.workers,
-                             sampler=test_sampler)
+                             sampler=test_sampler,
+                             collate_fn=utils.collate_variable_length_dict_outer)
 
     # run training
     for epoch in range(FLAGS.start_epoch, FLAGS.epochs):
@@ -332,27 +361,31 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
             logits = outputs[1]
 
             # get predictions
-            if task.logit_to_id:
+            if task.logit_to_id and isinstance(logits, torch.Tensor):
                 predictions = utils.get_ids_from_logits(logits.clone())
-            else:
+            elif isinstance(logits, torch.Tensor):
                 predictions = logits.clone()
+            else:
+                predictions = logits
 
             # update metrics
             metric_meter.update_scores("loss", {'score': loss.cpu().numpy(), 'count': 1})
-            predictions = predictions.cpu().numpy()
+            if isinstance(predictions, torch.Tensor):
+                predictions = predictions.cpu().numpy()
             gathered_dict = {k:v.cpu().numpy() if torch.is_tensor(v) else v for k, v in batch.items()}
             gathered_dict['predictions'] = predictions
             metric_meter.update_metrics(gathered_dict)
 
             # reduce average scores
             average_scores = metric_meter.get_average_scores()
-            average_scores = {
-                k:{
-                    'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
-                    'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
-                    } for k, v in average_scores.items()
-            }
-            average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
+            if args.distributed:
+                average_scores = {
+                    k:{
+                        'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
+                        'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
+                        } for k, v in average_scores.items()
+                }
+                average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
 
             if step_inbatch % args.print_freq == 0:
                 batch_time.update((time.time() - end)/args.print_freq)
@@ -371,13 +404,14 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
     
     # recude final scores
     average_scores = metric_meter.get_average_scores()
-    average_scores = {
-                k:{
-                    'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
-                    'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
-                    } for k, v in average_scores.items()
-            }
-    average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
+    if args.distributed:
+        average_scores = {
+                    k:{
+                        'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
+                        'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
+                        } for k, v in average_scores.items()
+                }
+        average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
 
     if args.local_rank == 0 or not args.distributed:
         metric_meter.reset()
@@ -403,6 +437,7 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
     for step_inbatch, batch in enumerate(train_loader):
         # select model inputs
         inputs = task.select_model_inputs(batch)
+
         # forward pass
         outputs = model(
             **inputs
@@ -418,10 +453,12 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
         optimizer.step()
 
         # get predictions
-        if task.logit_to_id:
+        if task.logit_to_id and isinstance(logits, torch.Tensor):
             predictions = utils.get_ids_from_logits(logits.clone())
-        else:
+        elif isinstance(logits, torch.Tensor):
             predictions = logits.clone()
+        else:
+            predictions = logits
 
         global_step = epoch*args.batch_size + step_inbatch
         if global_step % args.print_freq == 0:
@@ -431,20 +468,22 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
 
                 # update metrics
                 metric_meter.update_scores("loss", {'score': loss.cpu().numpy(), 'count': 1})
-                predictions = predictions.cpu().numpy()
+                if isinstance(predictions, torch.Tensor):
+                    predictions = predictions.cpu().numpy()
                 gathered_dict = {k:v.cpu().numpy() if torch.is_tensor(v) else v for k, v in batch.items()}
                 gathered_dict['predictions'] = predictions
                 
                 metric_meter.update_metrics(gathered_dict)
 
                 average_scores = metric_meter.get_average_scores()
-                average_scores = {
-                    k:{
-                        'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
-                        'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
-                        } for k, v in average_scores.items()
-                }
-                average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
+                if args.distributed:
+                    average_scores = {
+                        k:{
+                            'score': reduce_sum_tensor(torch.tensor(v['score']*v['count'], device='cuda')).cpu().numpy(), 
+                            'count': reduce_sum_tensor(torch.tensor(v['count'], device='cuda')).cpu().numpy()
+                            } for k, v in average_scores.items()
+                    }
+                    average_scores = {k:{'score': v['score']/v['count'], 'count': v['count']} for k, v in average_scores.items()}
 
                 if args.local_rank == 0 or not args.distributed:
                     score_log = summary_logger(
@@ -494,3 +533,6 @@ if __name__ == "__main__":
 
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'korquad_gen'
 # python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name ke_t5.models.models:T5EncoderForSequenceClassificationMean --task 'klue_tc'
+
+# python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py --gin_file="train.gin" --model_name transformers:T5ForConditionalGeneration --task 'klue_tc_gen'
+

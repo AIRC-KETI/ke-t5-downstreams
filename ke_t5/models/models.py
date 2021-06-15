@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from transformers import AutoConfig, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, T5EncoderModel, T5PreTrainedModel
+from transformers import AutoConfig, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, T5EncoderModel, T5PreTrainedModel, T5ForConditionalGeneration
+from transformers.modeling_outputs import SequenceClassifierOutput, TokenClassifierOutput
+
 
 import torch
 import torch.nn as nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 import torch.nn.functional as F
 
-from transformers.modeling_outputs import SequenceClassifierOutput
+from torchcrf import CRF
 
 from .loader import register_model
+
 
 
 class SimplePooler(nn.Module):
@@ -239,6 +242,146 @@ class T5EncoderForSequenceClassificationMean(T5EncoderModel):
             attentions=outputs.attentions,
         )
 
+
+@register_model('T5EncoderForTokenClassification')
+class T5EncoderForTokenClassification(T5EncoderModel):
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.num_labels = config.num_labels
+
+        self.dropout = nn.Dropout(config.dropout_rate)
+        self.classifier = nn.Linear(config.d_model, config.num_labels)
+
+        self.init_weights()
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        outputs = self.encoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        sequence_output = outputs[0]
+
+        sequence_output = self.dropout(sequence_output)
+        logits = self.classifier(sequence_output)
+
+        loss = None
+        if labels is not None:
+            loss_fct = CrossEntropyLoss()
+            # Only keep active parts of the loss
+            if attention_mask is not None:
+                active_loss = attention_mask.view(-1) == 1
+                active_logits = logits.view(-1, self.num_labels)
+                active_labels = torch.where(
+                    active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
+                )
+                loss = loss_fct(active_logits, active_labels)
+            else:
+                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+
+        if not return_dict:
+            output = (logits,) + outputs[2:]
+            return ((loss,) + output) if loss is not None else output
+
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
+
+
+@register_model('T5EncoderForEntityRecognitionWithCRF')
+class T5EncoderForEntityRecognitionWithCRF(T5EncoderModel):
+    def __init__(self, config):
+        if not hasattr(config, 'problem_type'):
+            config.problem_type = None
+        super(T5EncoderForEntityRecognitionWithCRF, self).__init__(config)
+
+        self.num_labels = config.num_labels
+
+        self.dropout = nn.Dropout(config.dropout_rate)
+        self.position_wise_ff = nn.Linear(config.d_model, config.num_labels)
+        self.crf = CRF(config.num_labels, batch_first=True)
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        r"""
+        Returns:
+        Example::
+            >>> from transformers import T5Tokenizer, T5EncoderModel
+            >>> tokenizer = T5Tokenizer.from_pretrained('t5-small')
+            >>> model = T5EncoderModel.from_pretrained('t5-small')
+            >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
+            >>> outputs = model(input_ids=input_ids)
+            >>> last_hidden_states = outputs.last_hidden_state
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if attention_mask is None:
+            attention_mask = torch.ones(input_ids, device=input_ids.device)
+
+        outputs = self.encoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        last_hidden_state = outputs[0]
+        last_hidden_state = self.dropout(last_hidden_state)
+        emissions = self.position_wise_ff(last_hidden_state)
+
+        loss = None
+        if labels is not None:
+            mask = attention_mask.to(torch.uint8)
+            loss = self.crf(emissions, labels, mask=mask)
+            loss = -1 * loss
+            logits = self.crf.decode(emissions, mask)
+        else:
+            mask = attention_mask.to(torch.uint8)
+            logits = self.crf.decode(emissions, mask)
+
+        if not return_dict:
+            output = (logits, ) + outputs[2:]
+            return ((loss,) + output) if loss is not None else logits
+
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
 
 
 @register_model('T5EncoderForSequenceClassificationRE')

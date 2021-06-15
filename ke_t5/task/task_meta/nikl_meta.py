@@ -529,5 +529,5 @@ NIKL_META={
     'ne_iob2_tags': _NE_IOB2_TAGS,
     'cola_classes': _COLA_CLASSES,
     'ne2020_tags': _NE2020_TAGS,
-    'ne2020_iob2_tabs': _NE2020_IOB2_TAGS,
+    'ne2020_iob2_tags': _NE2020_IOB2_TAGS,
 }
