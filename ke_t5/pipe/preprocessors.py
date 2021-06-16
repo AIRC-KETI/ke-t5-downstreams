@@ -74,6 +74,7 @@ def trim_output_features(
 def tokenize_output_features(
     features,
     output_features: OutputFeaturesType,
+    add_special_tokens: bool = False,
     copy_pretokenized: bool = True,
     with_eos: bool = False
 ) -> datasets.Dataset:
@@ -99,7 +100,7 @@ def tokenize_output_features(
             if copy_pretokenized:
                 ret[f'{k}_pretokenized'] = v
             tokenizer = output_features[k].tokenizer
-            v = tokenizer(v).input_ids
+            v = tokenizer(v, add_special_tokens=add_special_tokens).input_ids
             eos_token_id = tokenizer.eos_token_id
             if with_eos and output_features[k].add_eos:
                 if eos_token_id is None:
