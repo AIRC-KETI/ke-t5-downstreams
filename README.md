@@ -70,7 +70,7 @@ AdamW.weight_decay=1e-2
 ```bash
 python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py \
     --batch 32 \
-    --gin_file="train_default.gin" \
+    --gin_file="gin/train_default.gin" \
     --pre_trained_model="KETI-AIR/ke-t5-base" \
     --model_name transformers:T5ForConditionalGeneration \
     --task 'nikl_summarization_summary_split'
@@ -79,7 +79,7 @@ python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py \
 
 KE-T5 뿐만 아니라 다른 모델들을 이용해서도 task를 학습할 수 있습니다.
 **klue/roberta-small** 모델을 이용하여 klue topic classification을 학습하는 경우 아래와 같이 입력합니다.
-이 경우 RoBERTa를 이용한 sequence classification 모델은 transformers 모듈의 RobertaForSequenceClassification 클래스입니다.
+이 경우 RoBERTa를 이용한 sequence classification 모델은 transformers package의 RobertaForSequenceClassification 클래스입니다.
 `{모듈 경로}:{클래스 이름}` 형태로 **--model_name**에 입력해줍니다. 개인이 만든 모델들도 입력과 출력이 huggingface 모델과 동일하다면 똑같이 학습시킬 수 있습니다.
 (gin/klue_roberta_tc.gin에는 vocabulary를 klue/roberta-small의 vocabulary로 설정합니다. classification의 경우 `targets`의 `seqeunce length`는 큰 의미가 없습니다.)
 
@@ -95,7 +95,7 @@ python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py \
 
 
 학습을 더 진행하고 싶다면 **--resume**에 true나 체크포인트 경로를 입력해줍니다. (true의 경우 기본 경로에서 체크포인트를 로드함)
-모델은 huggingface `save_pretrained` 합수로 저장하여 나중에 `from_pretrained`로 로딩하려면 저장할 폴더 경로를 **--hf_path**에 입력해줍니다.
+모델은 huggingface `save_pretrained` 함수로 저장하여 나중에 `from_pretrained`로 로딩하려면 저장할 폴더 경로를 **--hf_path**에 입력해줍니다.
 
 
 ```bash
@@ -118,7 +118,7 @@ Single GPU로 학습을 하려면 이 값을 1로 설정하거나, `python -m to
 Test를 할때, generative model의 경우는 huggingface의 beam search, top_p, top_k 등을 위해 generate함수를 사용하고 싶을 수 있습니다.
 이 경우 `EvaluationHelper`의 **model_fn**으로 사용하고 싶은 함수 이름을 입력하고,
 **model_kwargs**로 함수의 keyword arguments를 입력하면 됩니다. (입력하지 않았을 경우 task에 지정된 kwargs가 입력됩니다.)
-**model_input_keys**로 함수에 입력될 데이터의 필드를 정할수 있으며 입력하지 않았을 경우 `input_ids`만 입력됩니다.
+**model_input_keys**로 함수에 입력될 데이터의 필드를 정할수 있으며 입력하지 않았을 경우 `input_ids`만 입력됩니다. (이 값은 모델에 입력될 key의 배열입니다.)
 
 **gin/test_default_gen.gin**
 ```python
@@ -134,6 +134,7 @@ EvaluationHelper.model_kwargs={
                 "no_repeat_ngram_size": 3,
                 "num_beams": 4,
             }
+# EvaluationHelper.model_input_keys=['input_ids']
 ```
 
 ```bash
@@ -202,7 +203,7 @@ class MyModel(T5EncoderModel):
 
 위의 `@register_model` 데코레이터는 `MyModel` 클래스를 **abcdefg**라고 등록한다는 것입니다.
 따라서 **--model_name**으로 모듈 이름 없이 **abcdefg**를 입력해주면 됩니다.
-만약 저 decorator를 붙이지 않았을 경우는 **my_model:abcdefg**로 입력해주면 됩니다.
+만약 저 decorator를 붙이지 않았을 경우는 **my_model_dir.my_model:MyModel**로 입력해주면 됩니다.
 
 예를 들어 기본 제공되는 모델들중 `T5EncoderForSequenceClassificationMean` 클래스는 ke_t5.models.models에 위치해 있고,
 **T5EncoderForSequenceClassificationMean**으로 이름을 등록했기 때문에,
