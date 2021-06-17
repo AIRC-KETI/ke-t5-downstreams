@@ -586,7 +586,7 @@ class T5EncoderForSequenceClassificationREAttention(T5EncoderModel):
         self.model_dim = config.d_model
         
         self.fc_layer = nn.Sequential(nn.Linear(self.model_dim, self.model_dim))
-        self.classifier = nn.Sequential(nn.Linear(self.model_dim * 3 ,self.num_labels)
+        self.classifier = nn.Sequential(nn.Linear(self.model_dim,self.num_labels)
                                        )
 
         self.softmax = nn.Softmax(dim=1)
@@ -613,31 +613,15 @@ class T5EncoderForSequenceClassificationREAttention(T5EncoderModel):
             return_dict=return_dict,
         )
 
+        # last_hidden_state : [b, seq_len, d_model]
         last_hidden_state = outputs[0]
         pooled_out = torch.mean(last_hidden_state, 1)
 
-
-
-        # last_hidden_state : [b, seq_len, d_model]
-        # entity_token_idx : [b, num_entity, idx] = [[sub_start, sub_end], [obj_start, obj_end], ...]
-        print('entity_token_idx {}'.format(entity_token_idx))
-        # print('entity_token_idx.shape {}'.format(entity_token_idx.shape))
-        print('input_ids {}'.format(input_ids))
-        print('input_ids.shape {}'.format(input_ids.shape))
-
-        
-
-        # entity_token_idx = [[sub_start_idx, sub_end_idx],[obj_start_idx, obj_end_idx]]
-        # print(entity_token_idx)
-        # print(type(entity_token_idx))
         sub_output = []
         obj_output = []
         for b_idx, entity_idx in enumerate(entity_token_idx):
-            # print(entity_idx)
+            # entity_token_idx : [b, num_entity, idx] = [[sub_start, sub_end], [obj_start, obj_end], ...
             sub_entity_idx, obj_entity_idx = entity_idx
-            # print(last_hidden_state[b_idx,sub_entity_idx[0]:sub_entity_idx[1],:])
-            print('sub_entity_idx', sub_entity_idx)
-            print('obj_entity_idx',obj_entity_idx)
             sub_hidden = last_hidden_state[b_idx,sub_entity_idx[0]:sub_entity_idx[1],:]
             # sub_hidden_mean [d_model] 
             sub_hidden_mean = torch.mean(sub_hidden, 0)
@@ -657,24 +641,17 @@ class T5EncoderForSequenceClassificationREAttention(T5EncoderModel):
         obj_attention = torch.bmm(last_hidden_state, obj_representation.unsqueeze(2)).squeeze()
 
         #attention value normalization
-        
-        print('sub_attention {}'.format(sub_attention))
-        print('sub_attention.shape {}'.format(sub_attention.shape))
-        
         sub_attention = self.softmax(sub_attention)
         obj_attention = self.softmax(obj_attention)
 
         # final_atteion : [b, seq_len]
         final_attention = sub_attention * obj_attention
+        final_attention = self.softmax(final_attention)
         
-
+        # final_representation : [b,1,seq_len] * [b,seq_len,d_model] = [b,d_model]
+        final_representation = torch.bmm(final_attention.unsqueeze(1),last_hidden_state)
         
-        sub_hidden_mean_cat = self.fc_layer(torch.cat((sub_output)))
-        obj_hidden_mean_cat = self.fc_layer(torch.cat((obj_output)))
-
-        entities_concat = torch.cat([pooled_out, sub_hidden_mean_cat, obj_hidden_mean_cat], dim=-1)
-        
-        logits = self.classifier(entities_concat)
+        logits = self.classifier(final_representation)
 
         loss = None
         if labels is not None:
