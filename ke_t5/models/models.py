@@ -680,12 +680,12 @@ class T5EncoderForSequenceClassificationREAttention(T5EncoderModel):
             attentions=outputs.attentions,
         )
 
-@register_model('T5EncoderForSequenceClassificationREMeanS2')
-class T5EncoderForSequenceClassificationREMeanS2(T5EncoderModel):
+@register_model('T5EncoderForSequenceClassificationREStartToken')
+class T5EncoderForSequenceClassificationREStartToken(T5EncoderModel):
     def __init__(self, config):
         if not hasattr(config, 'problem_type'):
             config.problem_type = None
-        super(T5EncoderForSequenceClassificationREMeanS2, self).__init__(config)
+        super(T5EncoderForSequenceClassificationREStartToken, self).__init__(config)
         self.num_labels = config.num_labels        
         self.model_dim = config.d_model
         
@@ -718,22 +718,15 @@ class T5EncoderForSequenceClassificationREMeanS2(T5EncoderModel):
         last_hidden_state = outputs[0]
         pooled_out = torch.mean(last_hidden_state, 1)
 
-        # entity_token_idx = [[sub_start_idx, sub_end_idx],[obj_start_idx, obj_end_idx]]
-        # print(entity_token_idx)
-        # print(type(entity_token_idx))
         sub_output = []
         obj_output = []
         for b_idx, entity_idx in enumerate(entity_token_idx):
-            # print(entity_idx)
             sub_entity_idx, obj_entity_idx = entity_idx
-            # print(last_hidden_state[b_idx,sub_entity_idx[0]:sub_entity_idx[1],:])
-            sub_hidden = last_hidden_state[b_idx,sub_entity_idx[0]:sub_entity_idx[1],:]
-            sub_hidden_mean = torch.mean(sub_hidden, 0)
-            sub_output.append(sub_hidden_mean.unsqueeze(0))
+            sub_start_hidden = last_hidden_state[b_idx,sub_entity_idx[0],:]
+            sub_output.append(sub_start_hidden.unsqueeze(0))
             
-            obj_hidden = last_hidden_state[b_idx,obj_entity_idx[0]:obj_entity_idx[1],:]
-            obj_hidden_mean = torch.mean(sub_hidden, 0)
-            obj_output.append(obj_hidden_mean.unsqueeze(0))
+            obj_start_hidden = last_hidden_state[b_idx,obj_entity_idx[0],:]
+            obj_output.append(obj_start_hidden.unsqueeze(0))
             
         sub_hidden_mean_cat = self.fc_layer(torch.cat((sub_output)))
         obj_hidden_mean_cat = self.fc_layer(torch.cat((obj_output)))
