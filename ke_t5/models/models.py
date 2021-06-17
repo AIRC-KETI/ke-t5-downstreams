@@ -758,7 +758,7 @@ class T5EncoderForSequenceClassificationREMeanAttention(T5EncoderModel):
         # final_representation : [b,1,seq_len] * [b,seq_len,d_model] = [b,d_model]
         final_representation = torch.bmm(final_attention.unsqueeze(1),last_hidden_state)
 
-        concat_output = torch.cat([pooled_output, final_representation], dim=-1)
+        concat_output = torch.cat([pooled_output, final_representation.squeeze()], dim=-1)
         logits = self.classifier(concat_output)
 
         loss = None
