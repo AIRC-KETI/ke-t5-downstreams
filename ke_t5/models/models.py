@@ -788,6 +788,116 @@ class T5EncoderForSequenceClassificationREMeanAttention(T5EncoderModel):
             attentions=outputs.attentions,
         )
 
+@register_model('T5EncoderForSequenceClassificationREAttentionAlone')
+class T5EncoderForSequenceClassificationREAttentionAlone(T5EncoderModel):
+    def __init__(self, config):
+        if not hasattr(config, 'problem_type'):
+            config.problem_type = None
+        super(T5EncoderForSequenceClassificationREAttentionAlone, self).__init__(config)
+        self.num_labels = config.num_labels
+        self.model_dim = config.d_model
+
+        self.pooler = MeanPooler(config)
+        self.dropout = nn.Dropout(config.dropout_rate)
+        self.fc_layer = nn.Sequential(nn.Linear(self.model_dim, self.model_dim))
+        self.classifier = nn.Sequential(nn.Linear(self.model_dim, self.num_labels)
+                                       )
+
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self,
+        input_ids=None,
+        attention_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        entity_token_idx=None
+    ):
+
+        outputs = self.encoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        # last_hidden_state : [b, seq_len, d_model]
+        last_hidden_state = outputs[0]
+        pooled_output = self.pooler(last_hidden_state, attention_mask)
+        pooled_output = self.dropout(pooled_output)
+
+        sub_output = []
+        obj_output = []
+        for b_idx, entity_idx in enumerate(entity_token_idx):
+            # entity_token_idx : [b, num_entity, idx] = [[sub_start, sub_end], [obj_start, obj_end], ...
+            sub_entity_idx, obj_entity_idx = entity_idx
+            sub_hidden = last_hidden_state[b_idx,sub_entity_idx[0]:sub_entity_idx[1],:]
+            # sub_hidden_mean [d_model] 
+            sub_hidden_mean = torch.mean(sub_hidden, 0)
+
+            sub_output.append(sub_hidden_mean.unsqueeze(0))
+            
+            obj_hidden = last_hidden_state[b_idx,obj_entity_idx[0]:obj_entity_idx[1],:]
+            obj_hidden_mean = torch.mean(obj_hidden, 0)
+            obj_output.append(obj_hidden_mean.unsqueeze(0))
+
+        # sub_representation : [b, d_model]
+        sub_representation = torch.cat((sub_output))
+        obj_representation = torch.cat((obj_output))
+
+        # [b, seq_len, d_model] * [b, d_model , 1] = [b, seq_len, 1] -> [b, seq_len]
+        sub_attention = torch.bmm(last_hidden_state, sub_representation.unsqueeze(2)).squeeze()
+        obj_attention = torch.bmm(last_hidden_state, obj_representation.unsqueeze(2)).squeeze()
+
+        #attention value normalization
+        # sub_attention = self.softmax(sub_attention)
+        # obj_attention = self.softmax(obj_attention)
+
+        # final_atteion : [b, seq_len]
+        final_attention = sub_attention * obj_attention
+        final_attention = self.softmax(final_attention)
+        
+        # final_representation : [b,1,seq_len] * [b,seq_len,d_model] = [b,d_model]
+        final_representation = torch.bmm(final_attention.unsqueeze(1),last_hidden_state)
+        out = self.fc_layer(final_representation)
+        out = F.relu(final_representation)
+        out = self.dropout(out)
+
+        logits = self.classifier(out)
+
+        loss = None
+        if labels is not None:
+            if self.config.problem_type is None:
+                if self.num_labels == 1:
+                    self.config.problem_type = "regression"
+                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                    self.config.problem_type = "single_label_classification"
+                else:
+                    self.config.problem_type = "multi_label_classification"
+
+            if self.config.problem_type == "regression":
+                loss_fct = MSELoss()
+                loss = loss_fct(logits.view(-1, self.num_labels), labels)
+            elif self.config.problem_type == "single_label_classification":
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            elif self.config.problem_type == "multi_label_classification":
+                loss_fct = BCEWithLogitsLoss()
+                loss = loss_fct(logits, labels)
+        
+        return SequenceClassifierOutput(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
+
 @register_model('T5EncoderForSequenceClassificationREStartToken')
 class T5EncoderForSequenceClassificationREStartToken(T5EncoderModel):
     def __init__(self, config):
