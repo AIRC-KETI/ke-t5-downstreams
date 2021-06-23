@@ -224,7 +224,7 @@ python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py \
 자신의 모델에 맞는 huggingface vocab path를 입력해주는 것을 잊지마세요.
 
 
-# Samples
+### Samples
 
 몇가지 샘플 모델을 공유합니다.
 
@@ -297,6 +297,33 @@ print(list(zip(inp_tks, lbls)))
 ('일', 'I-DT_DAY'), ('밝혔다', 'O'), ('.', 'O'), ('</s>', 'O')]
 # --------------------------------------------------------
 ```
+
+### Training configurations
+
+Task별 모델 학습에 사용된 configuration들 입니다.
+
+#### Relation Extraction (model_name)
+
+**train_RE.gin**
+
+```python
+get_dataset.sequence_length={'inputs':512, 'targets':512}
+ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'
+
+get_optimizer.optimizer_cls=@AdamW
+AdamW.lr=1e-5
+AdamW.betas=(0.9, 0.999)
+AdamW.eps=1e-06
+AdamW.weight_decay=1e-2
+```
+
+**Command**
+
+```bash
+CUDA_VISIBLE_DEVICES='0' python train_ddp.py --batch_size 32 --gin_file="gin/train_RE.gin" --pre_trained_model "KETI-AIR/ke-t5-base" --model_name T5EncoderForSequenceClassificationMeanSubmeanObjmean     --task 'klue_re_tk_idx' -epochs 50 --train_split train --valid_split test
+```
+
+
 
 
 ## Seq Pipe
