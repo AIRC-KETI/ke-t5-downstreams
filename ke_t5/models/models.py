@@ -125,7 +125,7 @@ class T5EncoderForSequenceClassificationSimple(T5EncoderModel):
 
         loss = None
         if labels is not None:
-            if c is None:
+            if self.config.problem_type is None:
                 if self.num_labels == 1:
                     self.config.problem_type = "regression"
                 elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
