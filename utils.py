@@ -333,6 +333,9 @@ def _collate_variable_length(batch):
         return elem_type(*(_collate_variable_length(samples) for samples in zip(*batch)))
     elif isinstance(elem, collections.abc.Sequence):
         # check to make sure that the elements in batch have consistent size
+        if len(batch) == 0:
+            return []
+            
         it = iter(batch)
         return [_collate_variable_length(elem) for elem in it]
 
