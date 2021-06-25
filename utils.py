@@ -299,6 +299,8 @@ def collate_variable_length(batch):
 
 def _collate_variable_length(batch):
     r"""Puts each data field into a tensor with outer dimension batch size"""
+    if len(batch) == 0:
+        return []
 
     elem = batch[0]
     elem_type = type(elem)
@@ -333,9 +335,6 @@ def _collate_variable_length(batch):
         return elem_type(*(_collate_variable_length(samples) for samples in zip(*batch)))
     elif isinstance(elem, collections.abc.Sequence):
         # check to make sure that the elements in batch have consistent size
-        if len(batch) == 0:
-            return []
-            
         it = iter(batch)
         return [_collate_variable_length(elem) for elem in it]
 

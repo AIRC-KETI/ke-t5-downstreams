@@ -39,12 +39,15 @@ python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py \
     --hf_cache_dir "./cache_dir/huggingface_datasets" \
     --train_split "train[:90%]" \
     --test_split "train[90%:]" \
+    --pass_only_model_io true \
     --gin_param="get_dataset.sequence_length={'inputs':512, 'targets':512}" \
     --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" \
     --pre_trained_model="KETI-AIR/ke-t5-base" \
     --model_name "transformers:T5ForConditionalGeneration" \
     --task 'nikl_summarization_summary_split'
 ```
+
+**--pass_only_model_io**를 true로 설정하면 모델의 IO로 사용되는 feature로만 mini batch를 만듭니다. 대부분의 generative 모델은 모델의 input과 taget tensor만으로 성능을 측정할 수 있기 때문에 이 값을 true로하면 불필요한 연산을 줄일 수 있습니다. 몇몇 다른 task들의 경우 모델의 input과 target만으로 성능을 측정할 수 없는 경우(NER, extractive QA, etc...)가 있는데, 이 경우에는 이 값을 false로 설정해주어야 합니다. 기본값은 false입니다.
 
 위 예제와 같이 **gin_param**으로 사용할 데이터들의 sequence length와 target length를 입력해주고,
 데이터를 preprocessing하는데 사용할 huggingface tokenizer의 이름을 지정해줄 수 있습니다.
