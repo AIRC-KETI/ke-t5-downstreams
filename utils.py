@@ -299,6 +299,8 @@ def collate_variable_length(batch):
 
 def _collate_variable_length(batch):
     r"""Puts each data field into a tensor with outer dimension batch size"""
+    if len(batch) == 0:
+        return []
 
     elem = batch[0]
     elem_type = type(elem)
