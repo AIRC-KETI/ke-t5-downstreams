@@ -39,12 +39,15 @@ python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py \
     --hf_cache_dir "./cache_dir/huggingface_datasets" \
     --train_split "train[:90%]" \
     --test_split "train[90%:]" \
+    --pass_only_model_io true \
     --gin_param="get_dataset.sequence_length={'inputs':512, 'targets':512}" \
     --gin_param="ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'" \
     --pre_trained_model="KETI-AIR/ke-t5-base" \
     --model_name "transformers:T5ForConditionalGeneration" \
     --task 'nikl_summarization_summary_split'
 ```
+
+**--pass_only_model_io**를 true로 설정하면 모델의 IO로 사용되는 feature로만 mini batch를 만듭니다. 대부분의 generative 모델은 모델의 input과 taget tensor만으로 성능을 측정할 수 있기 때문에 이 값을 true로하면 불필요한 연산을 줄일 수 있습니다. 몇몇 다른 task들의 경우 모델의 input과 target만으로 성능을 측정할 수 없는 경우(NER, extractive QA, etc...)가 있는데, 이 경우에는 이 값을 false로 설정해주어야 합니다. 기본값은 false입니다.
 
 위 예제와 같이 **gin_param**으로 사용할 데이터들의 sequence length와 target length를 입력해주고,
 데이터를 preprocessing하는데 사용할 huggingface tokenizer의 이름을 지정해줄 수 있습니다.
@@ -224,7 +227,7 @@ python -m torch.distributed.launch --nproc_per_node=2 train_ddp.py \
 자신의 모델에 맞는 huggingface vocab path를 입력해주는 것을 잊지마세요.
 
 
-# Samples
+### Samples
 
 몇가지 샘플 모델을 공유합니다.
 
@@ -297,6 +300,33 @@ print(list(zip(inp_tks, lbls)))
 ('일', 'I-DT_DAY'), ('밝혔다', 'O'), ('.', 'O'), ('</s>', 'O')]
 # --------------------------------------------------------
 ```
+
+### Training configurations
+
+Task별 모델 학습에 사용된 configuration들 입니다.
+
+#### Relation Extraction (model_name)
+
+**train_RE.gin**
+
+```python
+get_dataset.sequence_length={'inputs':512, 'targets':512}
+ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'
+
+get_optimizer.optimizer_cls=@AdamW
+AdamW.lr=1e-5
+AdamW.betas=(0.9, 0.999)
+AdamW.eps=1e-06
+AdamW.weight_decay=1e-2
+```
+
+**Command**
+
+```bash
+CUDA_VISIBLE_DEVICES='0' python train_ddp.py --batch_size 32 --gin_file="gin/train_RE.gin" --pre_trained_model "KETI-AIR/ke-t5-base" --model_name T5EncoderForSequenceClassificationMeanSubmeanObjmean     --task 'klue_re_tk_idx' -epochs 50 --train_split train --valid_split test
+```
+
+
 
 
 ## Seq Pipe

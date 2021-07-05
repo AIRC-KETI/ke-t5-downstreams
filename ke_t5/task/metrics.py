@@ -29,6 +29,14 @@ def accuracy_dict(gathered_dict, target_key='labels', prediction_key='prediction
     return {"accuracy": {'score': 100*sklearn.metrics.accuracy_score(targets, predictions), 'count': len(targets)}}
 
 
+def f1_score_dict_micro_sample_weight(gathered_dict, target_key='labels', prediction_key='predictions'):
+    targets = gathered_dict[target_key]
+    predictions = gathered_dict[prediction_key]
+    # At Klue RE, micro F1 Scores exclude no_relation(0) 
+    sample_weight = np.array(targets != 0, dtype=np.float)
+    return {"micro_F1_sample_weight ": {'score': 100*sklearn.metrics.f1_score(targets, predictions, average='micro', sample_weight=sample_weight, zero_division = 0), 'count': np.count_nonzero(targets)}}
+
+
 def bleu_dict(gathered_dict, target_key='labels', prediction_key='predictions'):
     """Computes BLEU score.
     Args:
