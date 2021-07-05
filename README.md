@@ -331,7 +331,7 @@ CUDA_VISIBLE_DEVICES='0' python train_ddp.py --batch_size 32 --gin_file="gin/tra
 | --- | --- | --- | --- |
 | KLUE RE | KLUE-RoBERTa-base | RoBERTa-base | 66.66	 |
 | KLUE RE | KLUE-RoBERTa-large | RoBERTa-large | 69.59	 |
-| `KLUE RE` | `T5EncoderForSequenceClassification  MeanSubmeanObjmean` | `KETI-AIR/ke-t5-base` | `73.45`	 |
+| KLUE RE | T5EncoderForSequenceClassification  MeanSubmeanObjmean | KETI-AIR/ke-t5-base | 73.45	 |
 
 >_* The F1-Score<sup>_mic_</sup> of KLUE-RE is micro-averaged F1 score ignoring the no_relation._
 
