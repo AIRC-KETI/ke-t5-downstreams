@@ -234,7 +234,7 @@ def validate(eval_loader, model, eval_helper, args, metric_meter):
 
 
             # get predictions
-            if eval_helper.logit_to_id and isinstance(logits, torch.Tensor):
+            if eval_helper.logit_to_id and isinstance(outputs[0], torch.Tensor):
                 logits = outputs[0]
                 predictions = utils.get_ids_from_logits(logits.clone())
             elif isinstance(outputs, torch.Tensor):
