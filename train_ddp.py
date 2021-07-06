@@ -69,6 +69,8 @@ flags.DEFINE_string("output_dir", 'output',
 
 flags.DEFINE_bool("test", False,
                   "is test mode?.")
+flags.DEFINE_bool("pass_only_model_io", False,
+                  "filter all the feature keys except model io features.")
 
 flags.DEFINE_string("resume", None,
                     "path to checkpoint.")
@@ -248,7 +250,10 @@ def main(_):
 
     if FLAGS.test:
         test_dataset = get_dataset(task, split=FLAGS.valid_split)
-        test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
+        if FLAGS.pass_only_model_io:
+            test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda')
+        else:
+            test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
         test_sampler = torch.utils.data.distributed.DistributedSampler(
             test_dataset)
         test_loader = DataLoader(
@@ -257,7 +262,7 @@ def main(_):
             shuffle=False, 
             num_workers=FLAGS.workers,
             sampler=test_sampler,
-            collate_fn=utils.collate_variable_length_dict_outer)
+            collate_fn=utils.collate_variable_length)
         metric_meter = validate(test_loader, model, 0, FLAGS, task, metric_meter)
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
             score_log = metric_meter.get_score_str("test")
@@ -269,8 +274,12 @@ def main(_):
     test_dataset = get_dataset(task, split=FLAGS.valid_split)
 
     # set dataset as pytorch dataset
-    train_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
-    test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
+    if FLAGS.pass_only_model_io:
+        train_dataset.set_format('torch', columns=task.model_input_columns, device='cuda')
+        test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda')
+    else:
+        train_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
+        test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
 
     # create sampler for distributed data loading without redundant
     train_sampler = None
@@ -287,13 +296,13 @@ def main(_):
                               shuffle=(train_sampler is None),
                               num_workers=FLAGS.workers,
                               sampler=train_sampler,
-                              collate_fn=utils.collate_variable_length_dict_outer)
+                              collate_fn=utils.collate_variable_length)
     test_loader = DataLoader(test_dataset,
                              batch_size=FLAGS.batch_size,
                              shuffle=False,
                              num_workers=FLAGS.workers,
                              sampler=test_sampler,
-                             collate_fn=utils.collate_variable_length_dict_outer)
+                             collate_fn=utils.collate_variable_length)
 
     # run training
     for epoch in range(FLAGS.start_epoch, FLAGS.epochs):
