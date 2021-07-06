@@ -304,6 +304,7 @@ def _collate_variable_length(batch):
 
     elem = batch[0]
     elem_type = type(elem)
+
     if isinstance(elem, torch.Tensor):
         out = None
         if torch.utils.data.get_worker_info() is not None:
