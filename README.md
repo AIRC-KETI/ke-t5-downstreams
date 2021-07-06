@@ -326,6 +326,16 @@ AdamW.weight_decay=1e-2
 CUDA_VISIBLE_DEVICES='0' python train_ddp.py --batch_size 32 --gin_file="gin/train_RE.gin" --pre_trained_model "KETI-AIR/ke-t5-base" --model_name T5EncoderForSequenceClassificationMeanSubmeanObjmean     --task 'klue_re_tk_idx' -epochs 50 --train_split train --valid_split test
 ```
 
+**Performance**
+| task | model | base model | <sup>*</sup>F1<sup>_mic_</sup> |
+| --- | --- | --- | --- |
+| KLUE RE | KLUE-RoBERTa-base | RoBERTa-base | 66.66	 |
+| KLUE RE | KLUE-RoBERTa-large | RoBERTa-large | 69.59	 |
+| KLUE RE | T5EncoderForSequenceClassification  MeanSubmeanObjmean | KETI-AIR/ke-t5-base | 73.45	 |
+
+>_* The F1-Score<sup>_mic_</sup> of KLUE-RE is micro-averaged F1 score ignoring the no_relation._
+
+
 #### Topic Classification (T5EncoderForSequenceClassificationMean)
 
 **gin/train_default.gin**
@@ -435,6 +445,7 @@ python -m torch.distributed.launch --nproc_per_node=${NUM_PROC} \
 | task | model | base model | Acc. |
 | --- | --- | --- | --- |
 | KLUE NLI | T5EncoderForSequenceClassificationMean | ke-t5-base | 85 |
+
 
 
 ## Seq Pipe
