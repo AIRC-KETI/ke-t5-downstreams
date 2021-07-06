@@ -463,7 +463,7 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
         else:
             predictions = logits
 
-        global_step = epoch*args.batch_size + step_inbatch
+        global_step = epoch*steps_per_epoch + step_inbatch
         if global_step % args.print_freq == 0:
             with torch.no_grad():
                 batch_time.update((time.time() - end)/args.print_freq)
