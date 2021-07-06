@@ -243,8 +243,11 @@ def main(_):
         resume()
 
     if FLAGS.hf_path:
-        if FLAGS.local_rank == 0 or not FLAGS.distributed:
+        if FLAGS.local_rank == 0 and FLAGS.distributed:
             model.module.save_pretrained(FLAGS.hf_path)
+            logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
+        elif not FLAGS.distributed:
+            model.save_pretrained(FLAGS.hf_path)
             logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
         exit()
 
@@ -460,7 +463,7 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
         else:
             predictions = logits
 
-        global_step = epoch*args.batch_size + step_inbatch
+        global_step = epoch*steps_per_epoch + step_inbatch
         if global_step % args.print_freq == 0:
             with torch.no_grad():
                 batch_time.update((time.time() - end)/args.print_freq)
