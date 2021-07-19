@@ -469,9 +469,9 @@ seq_pipe.TaskRegistry.add(
     model_input_columns=['input_ids', 'attention_mask', 'labels', 'entity_token_idx'],
     num_proc=4,
     metric_fns=[
-        metrics.accuracy_dict , metrics.f1_score_dict_micro_sample_weight
+        metrics.f1_score_micro_sample_weight_dict, metrics.accuracy_dict
     ],
-    best_fn=seq_pipe.evaluation.GreaterIsTheBest('accuracy'),
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('f1_score_micro_sample_weight'),
     additional_task_info={
         'num_labels': len(KLUE_META['re_relations']),
         'id2label': {idx:key for idx, key in enumerate(KLUE_META['re_relations'])},
