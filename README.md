@@ -305,7 +305,7 @@ print(list(zip(inp_tks, lbls)))
 
 Task별 모델 학습에 사용된 configuration들 입니다.
 
-#### Relation Extraction (model_name)
+#### Relation Extraction (T5EncoderForSequenceClassificationMeanSubmeanObjmean)
 
 **train_RE.gin**
 
@@ -334,6 +334,118 @@ CUDA_VISIBLE_DEVICES='0' python train_ddp.py --batch_size 32 --gin_file="gin/tra
 | KLUE RE | T5EncoderForSequenceClassification  MeanSubmeanObjmean | KETI-AIR/ke-t5-base | 73.45	 |
 
 >_* The F1-Score<sup>_mic_</sup> of KLUE-RE is micro-averaged F1 score ignoring the no_relation._
+
+
+#### Topic Classification (T5EncoderForSequenceClassificationMean)
+
+**gin/train_default.gin**
+
+```python
+get_dataset.sequence_length={'inputs':512, 'targets':512}
+ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'
+
+get_optimizer.optimizer_cls=@AdamW
+AdamW.lr=3e-4
+AdamW.betas=(0.9, 0.999)
+AdamW.eps=1e-06
+AdamW.weight_decay=1e-2
+```
+
+**gin/test_default.gin**
+
+```python
+get_dataset.sequence_length={'inputs':512, 'targets':512}
+ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'
+
+EvaluationHelper.model_fn='forward'
+EvaluationHelper.model_input_keys=['input_ids', 'attention_mask']
+```
+
+**Command**
+
+```bash
+EPOCHS=3
+BSZ=24
+NUM_PROC=8
+WORKERS=0
+
+PRE_TRAINED_MODEL="KETI-AIR/ke-t5-base"
+
+TASK=klue_tc
+MODEL=T5EncoderForSequenceClassificationMean
+
+# training
+python -m torch.distributed.launch --nproc_per_node=${NUM_PROC} \
+    train_ddp.py \
+    --gin_file="tmp/train_default.gin" \
+    --model_name ${MODEL} --task ${TASK} \
+    --train_split "train" --valid_split "test" \
+    --epochs ${EPOCHS} \
+    --batch_size ${BSZ} \
+    --workers ${WORKERS} \
+    --pre_trained_model ${PRE_TRAINED_MODEL}
+
+# test
+python -m torch.distributed.launch --nproc_per_node=${NUM_PROC} \
+    test_ddp.py \
+    --gin_file="tmp/test_default.gin" \
+    --model_name ${MODEL} \
+    --task ${TASK} \
+    --batch_size ${BSZ} \
+    --pre_trained_model ${PRE_TRAINED_MODEL} \
+    --resume output/${MODEL}_KETI-AIR_ke-t5-base/${TASK}/weights/best_model.pth
+```
+
+**Performance**
+| task | model | base model | Acc. |
+| --- | --- | --- | --- |
+| KLUE TC | T5EncoderForSequenceClassificationMean | ke-t5-base | 85.579	 |
+
+
+#### Natural Language Inference (T5EncoderForSequenceClassificationMean)
+
+gin file은 topic classification과 동일합니다.
+
+**Command**
+
+```bash
+EPOCHS=15
+BSZ=24
+NUM_PROC=8
+WORKERS=0
+
+PRE_TRAINED_MODEL="KETI-AIR/ke-t5-base"
+
+TASK=klue_tc
+MODEL=T5EncoderForSequenceClassificationMean
+
+# training
+python -m torch.distributed.launch --nproc_per_node=${NUM_PROC} \
+    train_ddp.py \
+    --gin_file="tmp/train_default.gin" \
+    --model_name ${MODEL} --task ${TASK} \
+    --train_split "train" --valid_split "test" \
+    --epochs ${EPOCHS} \
+    --batch_size ${BSZ} \
+    --workers ${WORKERS} \
+    --pre_trained_model ${PRE_TRAINED_MODEL}
+
+# test
+python -m torch.distributed.launch --nproc_per_node=${NUM_PROC} \
+    test_ddp.py \
+    --gin_file="tmp/test_default.gin" \
+    --model_name ${MODEL} \
+    --task ${TASK} \
+    --batch_size ${BSZ} \
+    --pre_trained_model ${PRE_TRAINED_MODEL} \
+    --resume output/${MODEL}_KETI-AIR_ke-t5-base/${TASK}/weights/best_model.pth
+```
+
+**Performance**
+| task | model | base model | Acc. |
+| --- | --- | --- | --- |
+| KLUE NLI | T5EncoderForSequenceClassificationMean | ke-t5-base | 85 |
+
 
 
 ## Seq Pipe
