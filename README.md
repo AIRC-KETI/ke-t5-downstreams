@@ -319,6 +319,16 @@ AdamW.betas=(0.9, 0.999)
 AdamW.eps=1e-06
 AdamW.weight_decay=1e-2
 ```
+**gin/RE_test_default.gin**
+
+```python
+get_dataset.sequence_length={'inputs':512, 'targets':8}
+ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'
+
+EvaluationHelper.model_fn='forward'
+EvaluationHelper.model_input_keys=['input_ids', 'attention_mask', 'entity_token_idx']
+
+```
 
 **Command**
 
@@ -326,12 +336,45 @@ AdamW.weight_decay=1e-2
 CUDA_VISIBLE_DEVICES='0' python train_ddp.py --batch_size 32 --gin_file="gin/train_RE.gin" --pre_trained_model "KETI-AIR/ke-t5-base" --model_name T5EncoderForSequenceClassificationMeanSubmeanObjmean     --task 'klue_re_tk_idx' -epochs 50 --train_split train --valid_split test
 ```
 
+```bash
+
+EPOCHS=50
+BSZ=16
+NUM_PROC=8
+WORKERS=0
+
+PRE_TRAINED_MODEL="KETI-AIR/ke-t5-base"
+
+TASK=klue_re_tk_idx
+MODEL=T5EncoderForSequenceClassificationFirstSubmeanObjmean
+
+# training
+python -m torch.distributed.launch --nproc_per_node=${NUM_PROC} \
+    train_ddp.py \
+    --gin_file="tmp/train_RE.gin" \
+    --model_name ${MODEL} --task ${TASK} \
+    --train_split "train" --valid_split "test" \
+    --epochs ${EPOCHS} \
+    --batch_size ${BSZ} \
+    --workers ${WORKERS} \
+    --pre_trained_model ${PRE_TRAINED_MODEL}
+
+# test
+python -m torch.distributed.launch --nproc_per_node=${NUM_PROC} \
+    test_ddp.py \
+    --gin_file="tmp/test_RE.gin" \
+    --model_name ${MODEL} \
+    --task ${TASK} \
+    --batch_size ${BSZ} \
+    --pre_trained_model ${PRE_TRAINED_MODEL} \
+    --resume output/${MODEL}_KETI-AIR_ke-t5-base/${TASK}/weights/best_model.pth
+
+```
+
 **Performance**
-| task | model | base model | <sup>*</sup>F1<sup>_mic_</sup> |
-| --- | --- | --- | --- |
-| KLUE RE | KLUE-RoBERTa-base | RoBERTa-base | 66.66	 |
-| KLUE RE | KLUE-RoBERTa-large | RoBERTa-large | 69.59	 |
-| KLUE RE | T5EncoderForSequenceClassification  MeanSubmeanObjmean | KETI-AIR/ke-t5-base | 73.45	 |
+| task | model | base model | <sup>*</sup>F1<sup>_mic_</sup> | URL |
+| --- | --- | --- | --- | --- |
+| KLUE RE | T5EncoderForSequenceClassificationFirstSubmeanObjmean | KETI-AIR/ke-t5-base | 73.64	 | [Download](https://drive.google.com/file/d/1EVX4i4sqJ-lBI2eNxjZT5ZGvu-RckGEF/view?usp=sharing) |
 
 >_* The F1-Score<sup>_mic_</sup> of KLUE-RE is micro-averaged F1 score ignoring the no_relation._
 
