@@ -1,0 +1,5 @@
+get_dataset.sequence_length={'inputs':512, 'targets':8}
+ke_t5.task.utils.get_vocabulary.vocab_name='KETI-AIR/ke-t5-base'
+
+EvaluationHelper.model_fn='forward'
+EvaluationHelper.model_input_keys=['input_ids', 'attention_mask', 'entity_token_idx']
