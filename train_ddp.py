@@ -27,6 +27,7 @@ from absl import logging
 
 import torch
 from torch.utils.data import DataLoader
+from torch import optim
 
 # distributed
 import torch.distributed as dist
@@ -71,6 +72,8 @@ flags.DEFINE_bool("test", False,
                   "is test mode?.")
 flags.DEFINE_bool("pass_only_model_io", False,
                   "filter all the feature keys except model io features.")
+flags.DEFINE_bool("schedule", False,
+                  "learning rate schedule")
 
 flags.DEFINE_string("resume", None,
                     "path to checkpoint.")
@@ -86,6 +89,8 @@ flags.DEFINE_integer("workers", 0, "number of workers for dataloader")
 flags.DEFINE_integer("epochs", 3, "number of epochs for training")
 flags.DEFINE_integer("start_epoch", 0, "start epoch")
 flags.DEFINE_integer("print_freq", 100, "print frequency")
+flags.DEFINE_float("learning_rate", 0.001, "max learning rate for linear anealing scheduler")
+
 
 flags.DEFINE_multi_string(
     "module_import", None,
@@ -284,6 +289,24 @@ def main(_):
         train_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
         test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
 
+    scheduler = None
+    # learning rate scheduler
+    if FLAGS.schedule:
+        scheduler = optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=FLAGS.learning_rate,
+            epochs=FLAGS.epochs,
+            last_epoch=-1,
+            steps_per_epoch=len(train_dataset),
+            pct_start=0.1,
+            anneal_strategy="linear"
+        )
+
+        # step til prev epoch
+        for _ in range(FLAGS.start_epoch):
+            for _ in range(len(train_dataset)):
+                scheduler.step()
+
     # create sampler for distributed data loading without redundant
     train_sampler = None
     test_sampler = None
@@ -315,7 +338,7 @@ def main(_):
             train_sampler.set_epoch(epoch)
 
         train(train_loader, model, optimizer, epoch,
-              FLAGS, task, metric_meter, summary_logger)
+              FLAGS, task, metric_meter, scheduler, summary_logger)
 
         metric_meter = validate(test_loader, model, epoch, FLAGS, task, metric_meter)
         if FLAGS.local_rank == 0 or not FLAGS.distributed:
@@ -425,7 +448,7 @@ def validate(eval_loader, model, epoch, args, task, metric_meter):
     return metric_meter
 
 
-def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, summary_logger=None):
+def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, scheduler=None, summary_logger=None):
     # calc batch time
     batch_time = utils.AverageMeter()
     
@@ -449,6 +472,10 @@ def train(train_loader, model, optimizer, epoch, args, task, metric_meter=None, 
         # get loss and logits
         loss = outputs[0]
         logits = outputs[1]
+
+        # schedule learning rate
+        if scheduler is not None:
+            scheduler.step()
 
         # backward pass
         optimizer.zero_grad()
