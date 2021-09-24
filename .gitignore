@@ -38,6 +38,7 @@ tmp/
 output/
 downstream_pipe/
 cache_dir/
+snapshot/
 data/
 hf_test.py
 hf_vocab_test.py
