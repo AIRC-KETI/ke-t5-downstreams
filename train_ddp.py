@@ -55,7 +55,7 @@ flags.DEFINE_string("task", 'klue_tc',
                     "name of task.")
 flags.DEFINE_string("model_name", 'ke_t5.models.models:T5EncoderForSequenceClassificationMean',
                     "name of task.")
-flags.DEFINE_string("pre_trained_model", 'KETI-AIR/ke-t5-small',
+flags.DEFINE_string("pre_trained_model", 'KETI-AIR/ke-t5-base',
                     "name or path of pretrained model.")
 flags.DEFINE_string("hf_data_dir", './data',
                     "data directory for huggingface dataset."
@@ -304,7 +304,7 @@ def main(_):
                 FLAGS.start_epoch = checkpoint['epoch']
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
-                if "scheduler" in checkpoint:
+                if scheduler is not None and "scheduler" in checkpoint:
                     scheduler.load_state_dict(checkpoint['scheduler'])
 
                 if FLAGS.local_rank == 0 or not FLAGS.distributed:
@@ -354,7 +354,7 @@ def main(_):
                 'state_dict': model.state_dict(),
                 'best_score': best_score,
                 'optimizer': optimizer.state_dict(),
-                'scheduler': scheduler.state_dict(),
+                'scheduler': scheduler.state_dict() if scheduler is not None else None,
             }, is_best,
                 path_info["ckpt_path"],
                 path_info["best_model_path"])
