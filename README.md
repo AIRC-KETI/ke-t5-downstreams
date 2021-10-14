@@ -164,7 +164,8 @@ python -m torch.distributed.launch --nproc_per_node=2 test_ddp.py \
 | `klue_nli_gen` | Generative |
 | `klue_nli` | Sequence Classification - single_label_classification |
 | `klue_sts_gen` | Generative |
-| `klue_sts` | Sequence Classification - regression |
+| `klue_sts_re` | Sequence Classification - regression |
+| `klue_sts` | Sequence Classification - single_label_classification |
 | `klue_re` | Sequence Classification - single_label_classification |
 | `klue_ner` | Token Classification |
 | `nikl_ner` | Token Classification |
@@ -459,7 +460,7 @@ WORKERS=0
 
 PRE_TRAINED_MODEL="KETI-AIR/ke-t5-base"
 
-TASK=klue_tc
+TASK=klue_nli
 MODEL=T5EncoderForSequenceClassificationMean
 
 # training
@@ -481,7 +482,20 @@ python -m torch.distributed.launch --nproc_per_node=${NUM_PROC} \
     --task ${TASK} \
     --batch_size ${BSZ} \
     --pre_trained_model ${PRE_TRAINED_MODEL} \
-    --resume output/${MODEL}_KETI-AIR_ke-t5-base/${TASK}/weights/best_model.pth
+    --resume best
+
+# save the model as Hugging face style.
+python -m torch.distributed.launch --nproc_per_node=${NUM_PROC} \
+    train_ddp.py \
+    --gin_file="tmp/train_default.gin" \
+    --model_name ${MODEL} --task ${TASK} \
+    --train_split "train" --valid_split "test" \
+    --epochs ${EPOCHS} \
+    --batch_size ${BSZ} \
+    --workers ${WORKERS} \
+    --resume true \
+    --hf_path default \
+    --pre_trained_model ${PRE_TRAINED_MODEL}
 ```
 
 **Performance**
