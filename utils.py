@@ -56,6 +56,7 @@ def create_directory_info(args, create_dir=True):
     logs_dir = os.path.join(model_dir, "logs")
 
     path_info = {
+        'model_dir': model_dir,
         'weights_dir': weights_dir,
         'logs_dir': logs_dir,
     }

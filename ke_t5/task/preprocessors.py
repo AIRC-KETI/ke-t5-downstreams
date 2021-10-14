@@ -79,6 +79,7 @@ def base_preproc_for_regression(
         benchmark_name,
         input_keys,
         is_string_tgt=True,
+        is_classification=False,
         with_feature_key=True,
         sep=' '):
     strs_to_join = []
@@ -92,9 +93,12 @@ def base_preproc_for_regression(
     if is_string_tgt:
         # put the name of benchmark if the model is generative
         strs_to_join.insert(0, benchmark_name)
-        ex['targets'] = "{:.1f}".format(np.round_(x['label'], 1))
+        ex['targets'] = "{:.1f}".format(x['labels']['label'])
     else:
-        ex['targets'] = np.round_(x['label'], 1)
+        if is_classification:
+            ex['targets'] = x['labels']['binary-label']
+        else:
+            ex['targets'] = x['labels']['real-label']
 
     joined = sep.join(strs_to_join)
     ex['inputs'] = joined
@@ -210,6 +214,123 @@ def preprocess_quad(x, benchmark_name, include_context=True, impossible_answer_t
         'question': q,
         'answers': a
     }
+
+
+_KLUE_NER_TAG=[
+        "B-DT",
+        "I-DT",
+        "B-LC",
+        "I-LC",
+        "B-OG",
+        "I-OG",
+        "B-PS",
+        "I-PS",
+        "B-QT",
+        "I-QT",
+        "B-TI",
+        "I-TI",
+        "O",
+]
+
+
+def create_ner_example(chrs, tags):
+    text = ''.join(chrs)
+    ne_seq = []
+    start_idx = 0
+    tag_stack = []
+    chr_stack = []
+    for t_idx, tag in enumerate(tags):
+        if tag.startswith('B'):
+            if len(chr_stack) > 0:
+                form = ''.join(chr_stack)
+                ne_seq.append({'form': form, 'begin': start_idx,
+                              'end': start_idx+len(form), 'label': tag_stack[0]})
+                chr_stack.clear()
+                tag_stack.clear()
+            start_idx = t_idx
+            tag_stack.append(tag.split('-')[-1])
+            chr_stack.append(chrs[t_idx])
+        elif tag.startswith('I'):
+            chr_stack.append(chrs[t_idx])
+        else:
+            if len(chr_stack) > 0:
+                form = ''.join(chr_stack)
+                ne_seq.append({'form': form, 'begin': start_idx,
+                              'end': start_idx+len(form), 'label': tag_stack[0]})
+                chr_stack.clear()
+                tag_stack.clear()
+    return text, ne_seq
+
+
+@seq_pipe.map_over_dataset
+def klue_ne_example_fmt(x):
+    chrs = x["tokens"]
+    tags = map(lambda x: _KLUE_NER_TAG[x], x["ner_tags"])
+    text, ne_seq = create_ner_example(chrs, tags)
+
+    ret = {
+        "NE": ne_seq,
+        "text": text,
+    }
+    return ret
+
+@seq_pipe.map_over_dataset
+def tokenize_and_preproc_iob24klue(x, output_features, tags=None, iob2_tags=None, tag_label='NE', input_key='inputs', info4klue=True):
+
+    ret = {}
+
+    inputs = x[input_key]
+    tokenizer = output_features[input_key].tokenizer
+    ret[f'{input_key}_pretokenized'] = inputs
+    input_hf = tokenizer(inputs)
+    input_ids = input_hf.input_ids
+
+    if info4klue:
+        ret['klue_metric'] = {}
+        ret['klue_metric']['char_to_token'] = [
+            input_hf.char_to_token(pos) for pos in range(len(inputs))]
+
+    ret[f'{input_key}'] = input_ids
+    #ret['char_to_token'] = {k:v for k, v in enumerate(char_to_token)}
+    #ret[f'{input_key}_tokens'] = [tokenizer._convert_id_to_token(x) for x in input_ids]
+
+    if tags and iob2_tags:
+        outside_label = iob2_tags.index('O')
+        tag_labels = x[tag_label]
+        labels = np.ones_like(input_ids, dtype=np.int32) * outside_label
+
+        if info4klue:
+            ret['klue_metric']['char_tag'] = np.ones_like(
+                ret['klue_metric']['char_to_token'], dtype=np.int32) * outside_label
+
+        for tgl in tag_labels:
+            label_txt = tgl['label']
+            if label_txt != 'O':
+
+                if info4klue:
+                    for idx, pos_idx in enumerate(list(range(tgl['begin'], tgl['end']))):
+                        if idx == 0:
+                            ret['klue_metric']['char_tag'][pos_idx] = iob2_tags.index(
+                                'B-'+label_txt)
+                        else:
+                            ret['klue_metric']['char_tag'][pos_idx] = iob2_tags.index(
+                                'I-'+label_txt)
+
+                pos_list = [input_hf.char_to_token(
+                    pos) for pos in range(tgl['begin'], tgl['end'])]
+                #pos_list = copy.deepcopy(char_to_token[begin:end])
+
+                # there is  None position in the case consecutive white spaces.
+                pos_list = [x for x in pos_list if x is not None]
+                token_set = set(pos_list)
+                token_set_order = sorted(list(token_set))
+                for iter_idx, tk_idx in enumerate(token_set_order):
+                    if iter_idx == 0:
+                        labels[tk_idx] = iob2_tags.index('B-'+label_txt)
+                    else:
+                        labels[tk_idx] = iob2_tags.index('I-'+label_txt)
+        ret['targets'] = labels
+    return ret
 
 
 @seq_pipe.map_over_dataset

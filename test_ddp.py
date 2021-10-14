@@ -80,9 +80,9 @@ flags.DEFINE_string("hf_path", None,
 
 flags.DEFINE_string("test_split", 'test',
                     "name of test split")
-flags.DEFINE_integer("batch_size", 16, "mini batch size")
+flags.DEFINE_integer("batch_size", 24, "mini batch size")
 flags.DEFINE_integer("workers", 0, "number of workers for dataloader")
-flags.DEFINE_integer("print_freq", 100, "print frequency")
+flags.DEFINE_integer("print_freq", 50, "print frequency")
 
 flags.DEFINE_multi_string(
     "module_import", None,
@@ -152,9 +152,10 @@ def main(_):
     model_class = loader.load_model(FLAGS.model_name)
     model_kwargs = task.additional_task_info
     if FLAGS.hf_path:
-        if FLAGS.local_rank == 0 or not FLAGS.distributed:
-            model = model_class.from_pretrained(FLAGS.hf_path)
-            logging.info('load huggingface model from {}'.format(FLAGS.hf_path))
+        if FLAGS.hf_path.lower() == 'default':
+            FLAGS.hf_path = os.path.join(path_info['model_dir'], "hf")
+        model = model_class.from_pretrained(FLAGS.hf_path)
+        logging.info('load huggingface model from {}'.format(FLAGS.hf_path))
     else:
         model = model_class.from_pretrained(
             FLAGS.pre_trained_model, **model_kwargs)
@@ -179,6 +180,9 @@ def main(_):
                 logging.info("=> loaded checkpoint '{}' (epoch {})"
                       .format(FLAGS.resume, checkpoint['epoch']))
             elif FLAGS.resume.lower()=='true':
+                FLAGS.resume = path_info['ckpt_path']
+                resume()
+            elif FLAGS.resume.lower()=='best':
                 FLAGS.resume = path_info['best_model_path']
                 resume()
             else:

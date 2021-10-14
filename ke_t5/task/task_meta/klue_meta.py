@@ -15,46 +15,48 @@
 ## This file would be replaced after packaging and deploy to PyPI.
 
 _KLUE_TC_CLASSES = [
-    '정치',  # politics
+    'IT과학',  # IT/science
     '경제',  # economy
     '사회',  # society
     '생활문화',  # culture
     '세계',  # world
-    'IT과학',  # IT/science
     '스포츠',  # sports
+    '정치',  # politics
     '해당없음'  # OOD(out-of-distribution)
 ]
 
 _KLUE_NLI_CLASSES = [
     'entailment',
-    'contradiction',
-    'neutral'
+    'neutral',
+    'contradiction'
 ]
 
 _KLUE_NER_TAGS = [
-    'PS',  # person
+    'DT',  # date
     'LC',  # location
     'OG',  # organization
-    'DT',  # date
-    'TI',  # time
-    'QT'  # quantity
+    'PS',  # person
+    'QT',  # quantity
+    'TI'  # time
 ]
 
 _KLUE_NER_IOB2_TAGS = [
-    'O',
-    'B-PS',
-    'I-PS',
+    'B-DT',
+    'I-DT',
     'B-LC',
     'I-LC',
     'B-OG',
     'I-OG',
-    'B-DT',
-    'I-DT',
-    'B-TI',
-    'I-TI',
+    'B-PS',
+    'I-PS',
     'B-QT',
     'I-QT',
+    'B-TI',
+    'I-TI',
+    'O'
 ]
+
+
 
 _KLUE_RE_RELATIONS = [
     "no_relation",
