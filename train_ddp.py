@@ -86,9 +86,9 @@ flags.DEFINE_string("valid_split", 'train[90%:]',
                     "name of validation split")
 flags.DEFINE_integer("batch_size", 32, "mini batch size")
 flags.DEFINE_integer("workers", 0, "number of workers for dataloader")
-flags.DEFINE_integer("epochs", 3, "number of epochs for training")
+flags.DEFINE_integer("epochs", 30, "number of epochs for training")
 flags.DEFINE_integer("start_epoch", 0, "start epoch")
-flags.DEFINE_integer("print_freq", 100, "print frequency")
+flags.DEFINE_integer("print_freq", 50, "print frequency")
 flags.DEFINE_float("learning_rate", 0.001, "max learning rate for linear anealing scheduler")
 
 
@@ -225,37 +225,6 @@ def main(_):
                     device_ids=[FLAGS.local_rank],
                     output_device=FLAGS.local_rank)
 
-    if FLAGS.resume:
-        # Use a local scope to avoid dangling references
-        def resume():
-            if os.path.isfile(FLAGS.resume):
-                logging.info("=> loading checkpoint '{}'".format(FLAGS.resume))
-                checkpoint = torch.load(
-                    FLAGS.resume, map_location=lambda storage, loc: storage.cuda(FLAGS.gpu))
-                FLAGS.start_epoch = checkpoint['epoch']
-                model.load_state_dict(checkpoint['state_dict'])
-                optimizer.load_state_dict(checkpoint['optimizer'])
-
-                if FLAGS.local_rank == 0 or not FLAGS.distributed:
-                    best_score = checkpoint['best_score']
-                logging.info("=> loaded checkpoint '{}' (epoch {})"
-                      .format(FLAGS.resume, checkpoint['epoch']))
-            elif FLAGS.resume.lower()=='true':
-                FLAGS.resume = path_info['ckpt_path']
-                resume()
-            else:
-                logging.info("=> no checkpoint found at '{}'".format(FLAGS.resume))
-        resume()
-
-    if FLAGS.hf_path:
-        if FLAGS.local_rank == 0 and FLAGS.distributed:
-            model.module.save_pretrained(FLAGS.hf_path)
-            logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
-        elif not FLAGS.distributed:
-            model.save_pretrained(FLAGS.hf_path)
-            logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
-        exit()
-
     if FLAGS.test:
         test_dataset = get_dataset(task, split=FLAGS.valid_split)
         if FLAGS.pass_only_model_io:
@@ -289,24 +258,6 @@ def main(_):
         train_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
         test_dataset.set_format('torch', columns=task.model_input_columns, device='cuda', output_all_columns=True)
 
-    scheduler = None
-    # learning rate scheduler
-    if FLAGS.schedule:
-        scheduler = optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=FLAGS.learning_rate,
-            epochs=FLAGS.epochs,
-            last_epoch=-1,
-            steps_per_epoch=len(train_dataset),
-            pct_start=0.1,
-            anneal_strategy="linear"
-        )
-
-        # step til prev epoch
-        for _ in range(FLAGS.start_epoch):
-            for _ in range(len(train_dataset)):
-                scheduler.step()
-
     # create sampler for distributed data loading without redundant
     train_sampler = None
     test_sampler = None
@@ -330,6 +281,58 @@ def main(_):
                              sampler=test_sampler,
                              collate_fn=utils.collate_variable_length)
 
+    scheduler = None
+    # learning rate scheduler
+    if FLAGS.schedule:
+        scheduler = optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=FLAGS.learning_rate,
+            epochs=FLAGS.epochs,
+            last_epoch=-1,
+            steps_per_epoch=len(train_loader),
+            pct_start=0.1,
+            anneal_strategy="linear"
+        )
+    
+    if FLAGS.resume:
+        # Use a local scope to avoid dangling references
+        def resume():
+            if os.path.isfile(FLAGS.resume):
+                logging.info("=> loading checkpoint '{}'".format(FLAGS.resume))
+                checkpoint = torch.load(
+                    FLAGS.resume, map_location=lambda storage, loc: storage.cuda(FLAGS.gpu))
+                FLAGS.start_epoch = checkpoint['epoch']
+                model.load_state_dict(checkpoint['state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer'])
+                if "scheduler" in checkpoint:
+                    scheduler.load_state_dict(checkpoint['scheduler'])
+
+                if FLAGS.local_rank == 0 or not FLAGS.distributed:
+                    best_score = checkpoint['best_score']
+                logging.info("=> loaded checkpoint '{}' (epoch {})"
+                      .format(FLAGS.resume, checkpoint['epoch']))
+            elif FLAGS.resume.lower()=='true':
+                FLAGS.resume = path_info['ckpt_path']
+                resume()
+            elif FLAGS.resume.lower()=='best':
+                FLAGS.resume = path_info['best_model_path']
+                resume()
+            else:
+                logging.info("=> no checkpoint found at '{}'".format(FLAGS.resume))
+        resume()
+
+    if FLAGS.hf_path:
+        if FLAGS.hf_path.lower() == 'default':
+            FLAGS.hf_path = os.path.join(path_info['model_dir'], "hf")
+        if FLAGS.local_rank == 0 and FLAGS.distributed:
+            model.module.save_pretrained(FLAGS.hf_path)
+            logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
+        elif not FLAGS.distributed:
+            model.save_pretrained(FLAGS.hf_path)
+            logging.info('hf model is saved in {}'.format(FLAGS.hf_path))
+        exit()
+
+
     # run training
     for epoch in range(FLAGS.start_epoch, FLAGS.epochs):
         # set epoch to train sampler 
@@ -351,6 +354,7 @@ def main(_):
                 'state_dict': model.state_dict(),
                 'best_score': best_score,
                 'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict(),
             }, is_best,
                 path_info["ckpt_path"],
                 path_info["best_model_path"])

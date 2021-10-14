@@ -43,7 +43,7 @@ DEFAULT_OUTPUT_FEATURES = {
 # ============ KLUE topic classification: Generative ============
 seq_pipe.TaskRegistry.add(
     "klue_tc_gen",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 'tc'),
+    seq_pipe.HFDataSource('klue', 'ynat'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -97,7 +97,7 @@ seq_pipe.TaskRegistry.add(
 # ============ KLUE topic classification: Classifier ============
 seq_pipe.TaskRegistry.add(
     "klue_tc",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 'tc'),
+    seq_pipe.HFDataSource('klue', 'ynat'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -144,7 +144,7 @@ seq_pipe.TaskRegistry.add(
 # ============ KLUE NLI: Generative ============
 seq_pipe.TaskRegistry.add(
     "klue_nli_gen",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 'nli'),
+    seq_pipe.HFDataSource('klue', 'nli'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -152,7 +152,7 @@ seq_pipe.TaskRegistry.add(
                 "id": "guid",
                 "premise": "premise",
                 "hypothesis": "hypothesis",
-                "label": "gold_label",
+                "label": "label",
             }),
         functools.partial(
             preprocessors.base_preproc_for_classification,
@@ -199,7 +199,7 @@ seq_pipe.TaskRegistry.add(
 # ============ KLUE NLI: Classifier ============
 seq_pipe.TaskRegistry.add(
     "klue_nli",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 'nli'),
+    seq_pipe.HFDataSource('klue', 'nli'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -207,7 +207,7 @@ seq_pipe.TaskRegistry.add(
                 "id": "guid",
                 "premise": "premise",
                 "hypothesis": "hypothesis",
-                "label": "gold_label",
+                "label": "label",
             }),
         functools.partial(
             preprocessors.base_preproc_for_classification,
@@ -246,7 +246,7 @@ seq_pipe.TaskRegistry.add(
 # ============ KLUE STS: Generative ============
 seq_pipe.TaskRegistry.add(
     "klue_sts_gen",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 'sts'),
+    seq_pipe.HFDataSource('klue', 'sts'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -254,7 +254,7 @@ seq_pipe.TaskRegistry.add(
                 "id": "guid",
                 "sentence1": "sentence1",
                 "sentence2": "sentence2",
-                "label": "label",
+                "label": "labels",
             }),
         functools.partial(
             preprocessors.base_preproc_for_regression,
@@ -289,8 +289,8 @@ seq_pipe.TaskRegistry.add(
 
 # ============ KLUE STS: Regressor ============
 seq_pipe.TaskRegistry.add(
-    "klue_sts",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 'sts'),
+    "klue_sts_reg",
+    seq_pipe.HFDataSource('klue', 'sts'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -298,7 +298,7 @@ seq_pipe.TaskRegistry.add(
                 "id": "guid",
                 "sentence1": "sentence1",
                 "sentence2": "sentence2",
-                "label": "label",
+                "label": "labels",
             }),
         functools.partial(
             preprocessors.base_preproc_for_regression,
@@ -332,11 +332,56 @@ seq_pipe.TaskRegistry.add(
         },
 )
 
+# ============ KLUE STS: Classifier ============
+seq_pipe.TaskRegistry.add(
+    "klue_sts",
+    seq_pipe.HFDataSource('klue', 'sts'),
+    preprocessors=[
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "id": "guid",
+                "sentence1": "sentence1",
+                "sentence2": "sentence2",
+                "label": "labels",
+            }),
+        functools.partial(
+            preprocessors.base_preproc_for_regression,
+            benchmark_name='klue_sts',
+            input_keys=['sentence1', 'sentence2'],
+            is_string_tgt=False,
+            is_classification=True,
+            with_feature_key=True
+        ),
+        seq_pipe.preprocessors.tokenize_output_features, 
+        seq_pipe.preprocessors.append_eos_after_trim_output_features,
+        seq_pipe.preprocessors.trim_and_pad_output_features,
+        functools.partial(
+            seq_pipe.preprocessors.rekey, 
+            key_map={
+                "input_ids": "inputs",
+                "attention_mask": "inputs_attention_mask",
+                "labels": "targets",
+            }),
+    ],
+    output_features=DEFAULT_OUTPUT_FEATURES,
+    logit_to_id=False,
+    metric_fns=[
+        metrics.pearson_corrcoef_dict, metrics.spearman_corrcoef_dict
+    ],
+    best_fn=seq_pipe.evaluation.GreaterIsTheBest('spearman_corrcoef'),
+    model_input_columns=['input_ids', 'attention_mask', 'labels'],
+    num_proc=4,
+    additional_task_info={
+        'num_labels': 1,
+        'problem_type': "regression",
+        },
+)
 
 # ============ KLUE RE: Generative ============
 seq_pipe.TaskRegistry.add(
     "klue_re_gen",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 're'),
+    seq_pipe.HFDataSource('klue', 're'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -390,7 +435,7 @@ seq_pipe.TaskRegistry.add(
 # ============ KLUE RE: Classifier ============
 seq_pipe.TaskRegistry.add(
     "klue_re",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 're'),
+    seq_pipe.HFDataSource('klue', 're'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -435,7 +480,7 @@ seq_pipe.TaskRegistry.add(
 # ============ KLUE RE: Classifier with sbj. obj. tk index ============
 seq_pipe.TaskRegistry.add(
     "klue_re_tk_idx",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 're'),
+    seq_pipe.HFDataSource('klue', 're'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -480,10 +525,11 @@ seq_pipe.TaskRegistry.add(
         },
 )
 
+
 # ============ KLUE MRC: Generative ============
 seq_pipe.TaskRegistry.add(
     "klue_mrc_gen",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 'mrc'),
+    seq_pipe.HFDataSource('klue', 'mrc'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -536,7 +582,7 @@ seq_pipe.TaskRegistry.add(
 # ============ KLUE MRC: Generative - Context free ============
 seq_pipe.TaskRegistry.add(
     "klue_mrc_gen_context_free",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 'mrc'),
+    seq_pipe.HFDataSource('klue', 'mrc'),
     preprocessors=[
         functools.partial(
             seq_pipe.preprocessors.rekey, 
@@ -591,17 +637,17 @@ seq_pipe.TaskRegistry.add(
 # ============ KLUE NER: Classifier ============
 seq_pipe.TaskRegistry.add(
     "klue_ner",
-    seq_pipe.HFDataSource('KETI-AIR/klue', 'ner'),
+    seq_pipe.HFDataSource('klue', 'ner'),
     preprocessors=[
+        preprocessors.klue_ne_example_fmt,
         functools.partial(
             seq_pipe.preprocessors.rekey, 
             key_map={
-                "id": "guid",
                 "inputs": "text",
                 "tag_info": "NE",
             }),
         functools.partial(
-            preprocessors.tokenize_and_preproc_iob2,
+            preprocessors.tokenize_and_preproc_iob24klue,
             tags=KLUE_META['ner_tags'],
             iob2_tags=KLUE_META[ 'ner_iob2_tags'],
             tag_label='tag_info'
@@ -1484,7 +1530,7 @@ if __name__ == "__main__":
     seq_pipe.set_hf_data_dir_override("./data")
     seq_pipe.set_hf_cache_dir_override("./cache_dir/huggingface_datasets")
 
-    task = seq_pipe.get_task('klue_mrc_gen')
+    task = seq_pipe.get_task('klue_ner')
     
     dataset = task.get_dataset(
         sequence_length={"inputs": 512, "targets": 512},
