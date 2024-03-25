@@ -2,7 +2,7 @@
 
 ## Downstreams
 
-Huggingface Echo System을 사용하시는 분들을 위해, 여러 다운스트림 태스크들을 학습시킬 수 있는 모듈을 만들었습니다.
+Huggingface Eco System을 사용하시는 분들을 위해, 여러 다운스트림 태스크들을 학습시킬 수 있는 모듈을 만들었습니다.
 Google의 seqio 일부를 huggingface datasets용으로 만든 `ke_t5.pipe`를 이용하여 명령어 한줄로 task들을 학습시켜볼 수 있습니다.
 
 ### Install requirements
